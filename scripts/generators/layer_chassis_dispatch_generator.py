@@ -144,8 +144,8 @@ class LayerChassisDispatchOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 
 extern bool wrap_handles;
@@ -153,7 +153,8 @@ extern bool wrap_handles;
 class ValidationObject;
 void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext);
 
-''')
+'''
+        ]
         for command in self.vk.commands.values():
             prototype = command.cPrototype
             prototype = prototype.replace("VKAPI_ATTR ", "")
@@ -172,8 +173,8 @@ void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext);
                 if self.containsNonDispatchableObject(extendedStruct) and extendedStruct not in self.ndo_extension_structs:
                     self.ndo_extension_structs.append(extendedStruct)
 
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "utils/cast_utils.h"
 #include "chassis.h"
 #include "layer_chassis_dispatch.h"
@@ -182,9 +183,8 @@ void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext);
 
 #define DISPATCH_MAX_STACK_ALLOCATIONS 32
 
-''')
-
-        out.append('''
+''',
+            '''
 // Unique Objects pNext extension handling function
 void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext) {
     void *cur_pnext = const_cast<void *>(pNext);
@@ -192,8 +192,8 @@ void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext) {
         VkBaseOutStructure *header = reinterpret_cast<VkBaseOutStructure *>(cur_pnext);
 
         switch (header->sType) {
-''')
-
+''',
+        ]
         for struct in [self.vk.structs[x] for x in self.ndo_extension_structs]:
             indent = '                '
             (api_decls, api_pre, api_post) = self.uniquifyMembers(struct.members, indent, 'safe_struct->', 0, False, False, False)
@@ -201,10 +201,14 @@ void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext) {
             if not api_pre:
                 continue
             out.extend([f'#ifdef {struct.protect}\n'] if struct.protect else [])
-            out.append(f'            case {struct.sType}: {{\n')
-            out.append(f'                    safe_{struct.name} *safe_struct = reinterpret_cast<safe_{struct.name} *>(cur_pnext);\n')
-            out.append(api_pre)
-            out.append('                } break;\n')
+            out.extend(
+                (
+                    f'            case {struct.sType}: {{\n',
+                    f'                    safe_{struct.name} *safe_struct = reinterpret_cast<safe_{struct.name} *>(cur_pnext);\n',
+                    api_pre,
+                    '                } break;\n',
+                )
+            )
             out.extend([f'#endif // {struct.protect}\n'] if struct.protect else [])
             out.append('\n')
 
@@ -250,12 +254,12 @@ void WrapPnextChainHandles(ValidationObject *layer_data, const void *pNext) {
 
             # Handle ndo destroy/free operations
             destroy_ndo_code = ''
-            if isDestroy:
-                param = command.params[-2] # Last param is always VkAllocationCallbacks
-                if self.isNonDispatchable(param.type):
-                    # Remove a single handle from the map
-                    destroy_ndo_code += addIndent(indent,
-f'''uint64_t {param.name}_id = CastToUint64({param.name});
+                    if isDestroy:
+                        param = command.params[-2] # Last param is always VkAllocationCallbacks
+                        if self.isNonDispatchable(param.type):
+                            # Remove a single handle from the map
+                            destroy_ndo_code += addIndent(indent,
+            f'''uint64_t {param.name}_id = CastToUint64({param.name});
 auto iter = unique_id_mapping.pop({param.name}_id);
 if (iter != unique_id_mapping.end()) {{
     {param.name} = ({param.type})iter->second;
@@ -277,8 +281,7 @@ if (iter != unique_id_mapping.end()) {{
             prototype = command.cPrototype[:-1]
             prototype = prototype.replace("VKAPI_ATTR ", "")
             prototype = prototype.replace("VKAPI_CALL vk", "Dispatch")
-            out.append(f'\n{prototype} {{\n')\
-
+            out.append(f'\n{prototype} {{\n')
             # Pull out the text for each of the parameters, separate them by commas in a list
             paramstext = ', '.join([param.name for param in command.params])
             wrapped_paramstext = paramstext
@@ -313,12 +316,14 @@ if (iter != unique_id_mapping.end()) {{
                 out.append("\n".join(str(api_decls).rstrip().split("\n")))
             if api_pre:
                 out.append("\n".join(str(api_pre).rstrip().split("\n")))
-            out.append('\n')
-            # Generate the wrapped dispatch call
-            out.append(f'    {assignResult}layer_data->{dispatch_table}.{command.name[2:]}({wrapped_paramstext});\n')
-
-            out.append("\n".join(str(api_post).rstrip().split("\n")))
-            out.append('\n')
+            out.extend(
+                (
+                    '\n',
+                    f'    {assignResult}layer_data->{dispatch_table}.{command.name[2:]}({wrapped_paramstext});\n',
+                    "\n".join(str(api_post).rstrip().split("\n")),
+                    '\n',
+                )
+            )
             # Handle the return result variable, if any
             if assignResult != '':
                 out.append('    return result;\n')

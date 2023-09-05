@@ -287,9 +287,9 @@ def command_output(cmd, directory, fail_ok=False):
         cmd, cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = p.communicate()
     if p.returncode != 0:
-        print('*** Error ***\nstderr contents:\n{}'.format(stderr))
+        print(f'*** Error ***\nstderr contents:\n{stderr}')
         if not fail_ok:
-            raise RuntimeError('Failed to run {} in {}'.format(cmd, directory))
+            raise RuntimeError(f'Failed to run {cmd} in {directory}')
     if VERBOSE:
         print(stdout)
     return stdout
@@ -363,18 +363,18 @@ class GoodRepo(object):
                 # If we get here, we didn't raise an error
                 return
             except RuntimeError as e:
-                print("Error cloning on iteration {}/{}: {}".format(retry + 1, retries, e))
+                print(f"Error cloning on iteration {retry + 1}/{retries}: {e}")
                 if retry + 1 < retries:
                     if retry_seconds > 0:
-                        print("Waiting {} seconds before trying again".format(retry_seconds))
+                        print(f"Waiting {retry_seconds} seconds before trying again")
                         time.sleep(retry_seconds)
                     if os.path.isdir(self.repo_dir):
-                        print("Removing old tree {}".format(self.repo_dir))
+                        print(f"Removing old tree {self.repo_dir}")
                         shutil.rmtree(self.repo_dir, onerror=on_rm_error)
                     continue
 
                 # If we get here, we've exhausted our retries.
-                print("Failed to clone {} on all retries.".format(self.url))
+                print(f"Failed to clone {self.url} on all retries.")
                 raise e
 
     def Fetch(self, retries=10, retry_seconds=60):
@@ -384,15 +384,15 @@ class GoodRepo(object):
                 # if we get here, we didn't raise an error, and we're done
                 return
             except RuntimeError as e:
-                print("Error fetching on iteration {}/{}: {}".format(retry + 1, retries, e))
+                print(f"Error fetching on iteration {retry + 1}/{retries}: {e}")
                 if retry + 1 < retries:
                     if retry_seconds > 0:
-                        print("Waiting {} seconds before trying again".format(retry_seconds))
+                        print(f"Waiting {retry_seconds} seconds before trying again")
                         time.sleep(retry_seconds)
                     continue
 
                 # If we get here, we've exhausted our retries.
-                print("Failed to fetch {} on all retries.".format(self.url))
+                print(f"Failed to fetch {self.url} on all retries.")
                 raise e
 
     def Checkout(self):
@@ -416,7 +416,7 @@ class GoodRepo(object):
         """Execute any prebuild steps from the repo root"""
         for p in self.prebuild:
             command_output(shlex.split(p), self.repo_dir)
-        if platform.system() == 'Linux' or platform.system() == 'Darwin':
+        if platform.system() in ['Linux', 'Darwin']:
             for p in self.prebuild_linux:
                 command_output(shlex.split(p), self.repo_dir)
         if platform.system() == 'Windows':
@@ -443,14 +443,15 @@ class GoodRepo(object):
         os.chdir(self.build_dir)
 
         cmake_cmd = [
-            'cmake', self.repo_dir,
-            '-DCMAKE_INSTALL_PREFIX=' + self.install_dir
+            'cmake',
+            self.repo_dir,
+            f'-DCMAKE_INSTALL_PREFIX={self.install_dir}',
         ]
 
         # Allow users to pass in arbitrary cache variables
         for cmake_var in self._args.cmake_var:
             pieces = cmake_var.split('=', 1)
-            cmake_cmd.append('-D{}={}'.format(pieces[0], pieces[1]))
+            cmake_cmd.append(f'-D{pieces[0]}={pieces[1]}')
 
         # For each repo this repo depends on, generate a CMake variable
         # definitions for "...INSTALL_DIR" that points to that dependent
@@ -463,9 +464,9 @@ class GoodRepo(object):
                     install_dir=dep_commit[0].install_dir))
 
         # Add any CMake options
-        for option in self.cmake_options:
-            cmake_cmd.append(escape(option.format(**self.__dict__)))
-
+        cmake_cmd.extend(
+            escape(option.format(**self.__dict__)) for option in self.cmake_options
+        )
         # Set build config for single-configuration generators (this is a no-op on multi-config generators)
         cmake_cmd.append(f'-D CMAKE_BUILD_TYPE={CONFIG_MAP[self._args.config]}')
 
@@ -473,12 +474,9 @@ class GoodRepo(object):
         # without needing a Visual Studio generator.
         if platform.system() == 'Windows' and self._args.generator != "Ninja":
             if self._args.arch.lower() == '64' or self._args.arch == 'x64' or self._args.arch == 'win64':
-                cmake_cmd.append('-A')
-                cmake_cmd.append('x64')
+                cmake_cmd.extend(('-A', 'x64'))
             else:
-                cmake_cmd.append('-A')
-                cmake_cmd.append('Win32')
-
+                cmake_cmd.extend(('-A', 'Win32'))
         # Apply a generator, if one is specified.  This can be used to supply
         # a specific generator for the dependent repositories to match
         # that of the main repository.
@@ -500,9 +498,7 @@ class GoodRepo(object):
 
         # Ninja is parallel by default
         if self._args.generator != "Ninja":
-            cmake_cmd.append('--parallel')
-            cmake_cmd.append(format(multiprocessing.cpu_count()))
-
+            cmake_cmd.extend(('--parallel', format(multiprocessing.cpu_count())))
         if VERBOSE:
             print("CMake command: " + " ".join(cmake_cmd))
 
@@ -530,8 +526,7 @@ class GoodRepo(object):
         self.CMakeBuild()
 
     def IsOptional(self, opts):
-        if len(self.optional.intersection(opts)) > 0: return True
-        else: return False
+        return len(self.optional.intersection(opts)) > 0
 
 def GetGoodRepos(args):
     """Returns the latest list of GoodRepo objects.

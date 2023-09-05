@@ -126,9 +126,12 @@ class ThreadSafetyOutputGenerator(BaseGenerator):
         for param in command.params:
             if param.externSyncPointer:
                 if param.length:
-                    # Externsync can list pointers to arrays of members to synchronize
-                    out.append(f'    if ({param.name}) {{\n')
-                    out.append(f'        for (uint32_t index = 0; index < {param.length}; index++) {{\n')
+                    out.extend(
+                        (
+                            f'    if ({param.name}) {{\n',
+                            f'        for (uint32_t index = 0; index < {param.length}; index++) {{\n',
+                        )
+                    )
                     second_indent = '    '
                     for member in param.externSyncPointer:
                         # Replace first empty [] in member name with index
@@ -147,24 +150,27 @@ class ThreadSafetyOutputGenerator(BaseGenerator):
                             # Replace any second empty [] in element name with inner array index based on mapping array
                             # names like "pSomeThings[]" to "someThingCount" array size. This could be more robust by
                             # mapping a param member name to a struct type and "len" attribute.
-                            limit = element[0:element.find('s[]')] + 'Count'
+                            limit = element[:element.find('s[]')] + 'Count'
                             dotp = limit.rfind('.p')
-                            limit = limit[0:dotp+1] + limit[dotp+2:dotp+3].lower() + limit[dotp+3:]
+                            limit = limit[:dotp+1] + limit[dotp+2:dotp+3].lower() + limit[dotp+3:]
                             out.append(f'            for (uint32_t index2=0; index2 < {limit}; index2++) {{\n')
                             element = element.replace('[]','[index2]')
                             second_indent = '        '
-                            out.append(f'        {second_indent}{prefix}WriteObject{suffix}({element}, vvl::Func::{command.name});\n')
-                            out.append(f'            {second_indent}}}\n')
-                            out.append(f'        {second_indent}}}\n')
+                            out.extend(
+                                (
+                                    f'        {second_indent}{prefix}WriteObject{suffix}({element}, vvl::Func::{command.name});\n',
+                                    f'            {second_indent}}}\n',
+                                    f'        {second_indent}}}\n',
+                                )
+                            )
                         else:
                             out.append(f'        {second_indent}{prefix}WriteObject{suffix}({element}, vvl::Func::{command.name});\n')
-                    out.append('        }\n')
-                    out.append('    }\n')
+                    out.extend(('        }\n', '    }\n'))
                 else:
                     # externsync can list members to synchronize
                     for member in param.externSyncPointer:
                         member = str(member).replace("::", "->")
-                        member = str(member).replace(".", "->")
+                        member = member.replace(".", "->")
                         suffix = 'ParentInstance' if 'surface' in member or 'swapchain' in member.lower() else ''
                         out.append(f'    {prefix}WriteObject{suffix}({member}, vvl::Func::{command.name});\n')
             elif param.externSync:
@@ -180,14 +186,20 @@ class ThreadSafetyOutputGenerator(BaseGenerator):
                         out.append(f'    DestroyObject{GetParentInstance(param)}({param.name});\n')
             elif param.pointer and ('Create' in command.name or 'Allocate' in command.name or 'AcquirePerformanceConfigurationINTEL' in command.name) and prefix == 'Finish':
                 if param.type in self.vk.handles:
-                    indent = '    '
                     create_pipelines_call = True
                     create_shaders_call = True
                     # The CreateXxxPipelines/CreateShaders APIs can return a list of partly created pipelines/shaders upon failure
-                    if not ('Create' in command.name and 'Pipelines' in command.name):
+                    if (
+                        'Create' not in command.name
+                        or 'Pipelines' not in command.name
+                    ):
                         create_pipelines_call = False
-                    if not ('Create' in command.name and 'Shaders' in command.name):
+                    if (
+                        'Create' not in command.name
+                        or 'Shaders' not in command.name
+                    ):
                         create_shaders_call = False
+                    indent = '    '
                     if not create_pipelines_call and not create_shaders_call:
                         out.append('    if (record_obj.result == VK_SUCCESS) {\n')
                         create_pipelines_call = False
@@ -200,64 +212,76 @@ class ThreadSafetyOutputGenerator(BaseGenerator):
                                 if candidate.pointer:
                                     dereference = '*'
                         param_len = param.length.replace("::", "->")
-                        out.append(f'{indent}if ({param.name}) {{\n')
-                        out.append(f'{indent}    for (uint32_t index = 0; index < {dereference}{param_len}; index++) {{\n')
+                        out.extend(
+                            (
+                                f'{indent}if ({param.name}) {{\n',
+                                f'{indent}    for (uint32_t index = 0; index < {dereference}{param_len}; index++) {{\n',
+                            )
+                        )
                         if create_pipelines_call:
                             out.append(f'{indent}        if (!pPipelines[index]) continue;\n')
                         if create_shaders_call:
                             out.append(f'{indent}        if (!pShaders[index]) continue;\n')
-                        out.append(f'{indent}        CreateObject{GetParentInstance(param)}({param.name}[index]);\n')
-                        out.append(f'{indent}    }}\n')
-                        out.append(f'{indent}}}\n')
+                        out.extend(
+                            (
+                                f'{indent}        CreateObject{GetParentInstance(param)}({param.name}[index]);\n',
+                                f'{indent}    }}\n',
+                                f'{indent}}}\n',
+                            )
+                        )
                     else:
                         out.append(f'{indent}CreateObject{GetParentInstance(param)}(*{param.name});\n')
                     if not create_pipelines_call and not create_shaders_call:
                         out.append('    }\n')
-            else:
+            elif (
+                param.length
+                and param.name != 'pPipelines'
+                and (param.name != 'pShaders' or 'Create' not in command.name)
+            ):
                 if param.type in self.vk.handles and param.type != 'VkPhysicalDevice':
-                    if param.length and ('pPipelines' != param.name) and ('pShaders' != param.name or 'Create' not in command.name):
-                        # Add pointer dereference for array counts that are pointer values
-                        dereference = ''
-                        for candidate in command.params:
-                            if param.length == candidate.name:
-                                if candidate.pointer:
-                                    dereference = '*'
-                        param_len = param.length.replace("::", "->")
-                        out.append(f'''    if ({param.name}) {{
+                    # Add pointer dereference for array counts that are pointer values
+                    dereference = ''
+                    for candidate in command.params:
+                        if param.length == candidate.name:
+                            if candidate.pointer:
+                                dereference = '*'
+                    param_len = param.length.replace("::", "->")
+                    out.append(f'''    if ({param.name}) {{
         for (uint32_t index = 0; index < {dereference}{param.length}; index++) {{
             {prefix}ReadObject{GetParentInstance(param)}({param.name}[index], vvl::Func::{command.name});
         }}
     }}\n''')
-                    elif not param.pointer:
-                        # Pointer params are often being created.
-                        # They are not being read from.
-                        out.append(f'    {prefix}ReadObject{GetParentInstance(param)}({param.name}, vvl::Func::{command.name});\n')
+            elif not param.pointer:
+                if param.type in self.vk.handles and param.type != 'VkPhysicalDevice':
+                    # Pointer params are often being created.
+                    # They are not being read from.
+                    out.append(f'    {prefix}ReadObject{GetParentInstance(param)}({param.name}, vvl::Func::{command.name});\n')
 
 
         for param in [x for x in command.params if x.externSync]:
             out.append('    // Host access to ')
             if param.externSyncPointer:
                 out.append(",".join(param.externSyncPointer))
+            elif param.length:
+                out.append(f'each member of {param.name}')
+            elif param.pointer:
+                out.append(f'the object referenced by {param.name}')
             else:
-                if param.length:
-                    out.append(f'each member of {param.name}')
-                elif param.pointer:
-                    out.append(f'the object referenced by {param.name}')
-                else:
-                    out.append(param.name)
+                out.append(param.name)
             out.append(' must be externally synchronized\n')
 
         # Find and add any "implicit" parameters that are thread unsafe
         out.extend([f'    // {x} must be externally synchronized between host accesses\n' for x in command.implicitExternSyncParams])
 
-        return "".join(out) if len(out) > 0 else None
+        return "".join(out) if out else None
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "chassis.h"
 #include "thread_tracker/thread_safety_validation.h"
-''')
+'''
+        ]
         for command in [x for x in self.vk.commands.values() if x.name not in self.blacklist and x.name not in self.manual_commands]:
             # Determine first if this function needs to be intercepted
             startThreadSafety = self.makeThreadUseBlock(command, start=True)

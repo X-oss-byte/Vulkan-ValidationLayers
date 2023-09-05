@@ -24,9 +24,7 @@ import common_ci
 def Build(args):
     config = args.configuration
 
-    # Since this script uses Ninja to build Windows users need to be in a developer command prompt.
     if common_ci.IsWindows():
-        # This environment variable is arbitrary. I just picked one set by the developer command prompt.
         if "VSCMD_ARG_TGT_ARCH" not in os.environ:
             print("This script must be invoked in a developer command prompt!")
             sys.exit(1)
@@ -39,7 +37,9 @@ def Build(args):
         common_ci.CheckVVL()
 
     except subprocess.CalledProcessError as proc_error:
-        print('Command "%s" failed with return code %s' % (' '.join(proc_error.cmd), proc_error.returncode))
+        print(
+            f"""Command "{' '.join(proc_error.cmd)}" failed with return code {proc_error.returncode}"""
+        )
         sys.exit(proc_error.returncode)
     except Exception as unknown_error:
         print('An unknown error occured: %s', unknown_error)
@@ -52,7 +52,9 @@ def Test():
         common_ci.RunVVLTests()
 
     except subprocess.CalledProcessError as proc_error:
-        print('Command "%s" failed with return code %s' % (' '.join(proc_error.cmd), proc_error.returncode))
+        print(
+            f"""Command "{' '.join(proc_error.cmd)}" failed with return code {proc_error.returncode}"""
+        )
         sys.exit(proc_error.returncode)
     except Exception as unknown_error:
         print('An unknown error occured: %s', unknown_error)

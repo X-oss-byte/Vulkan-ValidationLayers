@@ -47,7 +47,9 @@ def main():
     try:
         common_ci.BuildVVL(config = config, cmake_args = args.cmake, build_tests = "OFF")
     except subprocess.CalledProcessError as proc_error:
-        print('Command "%s" failed with return code %s' % (' '.join(proc_error.cmd), proc_error.returncode))
+        print(
+            f"""Command "{' '.join(proc_error.cmd)}" failed with return code {proc_error.returncode}"""
+        )
         sys.exit(proc_error.returncode)
     except Exception as unknown_error:
         print('An unkown error occured: %s', unknown_error)

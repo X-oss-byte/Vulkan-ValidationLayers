@@ -59,8 +59,8 @@ class CommandValidationOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "error_message/logging.h"
 #include "core_checks/core_validation.h"
 
@@ -85,9 +85,9 @@ struct CommandValidationInfo {
 };
 
 using Func = vvl::Func;
-''')
-
-        out.append('static const vvl::unordered_map<Func, CommandValidationInfo> kCommandValidationTable {\n')
+''',
+            'static const vvl::unordered_map<Func, CommandValidationInfo> kCommandValidationTable {\n',
+        ]
         for command in [x for x in self.vk.commands.values() if x.name.startswith('vkCmd')]:
             out.append(f'{{Func::{command.name}, {{\n')
             # recording_vuid
@@ -108,8 +108,11 @@ using Func = vvl::Func;
                 sys.exit(1)
 
             # queue_flags / queue_vuid
-            queue_flags = []
-            queue_flags.extend(["VK_QUEUE_GRAPHICS_BIT"] if Queues.GRAPHICS & command.queues else [])
+            queue_flags = list(
+                ["VK_QUEUE_GRAPHICS_BIT"]
+                if Queues.GRAPHICS & command.queues
+                else []
+            )
             queue_flags.extend(["VK_QUEUE_COMPUTE_BIT"] if Queues.COMPUTE & command.queues else [])
             queue_flags.extend(["VK_QUEUE_TRANSFER_BIT"] if Queues.TRANSFER & command.queues else [])
             queue_flags.extend(["VK_QUEUE_SPARSE_BINDING_BIT"] if Queues.SPARSE_BINDING & command.queues else [])
@@ -142,16 +145,11 @@ using Func = vvl::Func;
             elif command.videoCoding is CommandScope.OUTSIDE or command.videoCoding is CommandScope.NONE:
                 videoCodingType = 'CMD_SCOPE_OUTSIDE'
                 vuid = getVUID(self.valid_vuids, f'VUID-{alias_name}-videocoding')
-            out.append(f'    {videoCodingType}, {vuid},\n')
-
-            out.append('}},\n')
-        out.append('};\n')
-
-
-        #
-        # The main function to validate all the commands
-        # TODO - Remove C++ code from being a single python string
-        out.append('''
+            out.extend((f'    {videoCodingType}, {vuid},\n', '}},\n'))
+        out.extend(
+            (
+                '};\n',
+                '''
 // Ran on all vkCmd* commands
 // Because it validate the implicit VUs that stateless can't, if this fails, it is likely
 // the input is very bad and other checks will crash dereferencing null pointers
@@ -204,5 +202,7 @@ bool CoreChecks::ValidateCmd(const CMD_BUFFER_STATE &cb_state, const Location& l
     }
 
     return skip;
-}''')
+}''',
+            )
+        )
         self.write("".join(out))

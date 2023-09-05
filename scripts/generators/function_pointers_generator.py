@@ -57,8 +57,8 @@ class FunctionPointersOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <vulkan/vulkan.h>
 
@@ -75,7 +75,8 @@ class FunctionPointersOutputGenerator(BaseGenerator):
 #endif
 
 namespace vk {
-''')
+'''
+        ]
         for command in self.vk.commands.values():
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'extern PFN_{command.name} {command.name[2:]};\n')
@@ -90,8 +91,8 @@ void ResetAllExtensions();
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "vk_function_pointers.h"
 #include <cassert>
 #include <cstdio>
@@ -145,7 +146,8 @@ static inline void *get_proc_address(dl_handle library, const char *name) {
 #endif
 
 namespace vk {
-''')
+'''
+        ]
         for command in self.vk.commands.values():
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'PFN_{command.name} {command.name[2:]};\n')
@@ -175,35 +177,46 @@ void InitCore(const char *api_name) {
     }
 ''')
         out.extend([f'    {x.name[2:]} = reinterpret_cast<PFN_{x.name}>(get_proc_address(lib_handle, "{x.name}"));\n' for x in self.vk.commands.values() if not x.extensions])
-        out.append('}')
-
-        out.append('''
+        out.extend(
+            (
+                '}',
+                '''
 void InitInstanceExtension(VkInstance instance, const char* extension_name) {
     assert(instance);
     static const vvl::unordered_map<std::string, std::function<void(VkInstance)>> initializers = {
-''')
+''',
+            )
+        )
         for extension in [x for x in self.vk.extensions.values() if x.instance and x.commands]:
             out.extend([f'#ifdef {extension.protect}\n'] if extension.protect else [])
-            out.append('        {\n')
-            out.append(f'            "{extension.name}", [](VkInstance instance) {{\n')
-            for command in [x for x in extension.commands]:
-                out.append(f'                {command.name[2:]} = reinterpret_cast<PFN_{command.name}>(GetInstanceProcAddr(instance, "{command.name}"));\n')
-            out.append('            }\n')
-            out.append('        },\n')
+            out.extend(
+                (
+                    '        {\n',
+                    f'            "{extension.name}", [](VkInstance instance) {{\n',
+                )
+            )
+            out.extend(
+                f'                {command.name[2:]} = reinterpret_cast<PFN_{command.name}>(GetInstanceProcAddr(instance, "{command.name}"));\n'
+                for command in list(extension.commands)
+            )
+            out.extend(('            }\n', '        },\n'))
             out.extend([f'#endif //{extension.protect}\n'] if extension.protect else [])
 
-        out.append('''
+        out.extend(
+            (
+                '''
     };
 
     if (auto it = initializers.find(extension_name); it != initializers.end())
         (it->second)(instance);
 }
-''')
-
-        out.append('''
+''',
+                '''
 void InitDeviceExtension(VkInstance instance, VkDevice device, const char* extension_name) {
     static const vvl::unordered_map<std::string, std::function<void(VkInstance, VkDevice)>> initializers = {
-''')
+''',
+            )
+        )
         for extension in [x for x in self.vk.extensions.values() if x.device and x.commands]:
             out.extend([f'#ifdef {extension.protect}\n'] if extension.protect else [])
             out.append('        {\n')
@@ -212,25 +225,25 @@ void InitDeviceExtension(VkInstance instance, VkDevice device, const char* exten
             out.append(f'            "{extension.name}", [](VkInstance {"instance" if instanceCommand else ""}, VkDevice {"device" if deviceCommand else ""}) {{\n')
             out.extend([f'                {command.name[2:]} = reinterpret_cast<PFN_{command.name}>(GetDeviceProcAddr(device, "{command.name}"));\n' for command in deviceCommand])
             out.extend([f'                {command.name[2:]} = reinterpret_cast<PFN_{command.name}>(GetInstanceProcAddr(instance, "{command.name}"));\n' for command in instanceCommand])
-            out.append('            }\n')
-            out.append('        },\n')
+            out.extend(('            }\n', '        },\n'))
             out.extend([f'#endif //{extension.protect}\n'] if extension.protect else [])
 
-        out.append('''
+        out.extend(
+            (
+                '''
     };
 
     if (auto it = initializers.find(extension_name); it != initializers.end())
         (it->second)(instance, device);
 }
-''')
-
-        out.append('void ResetAllExtensions() {\n')
+''',
+                'void ResetAllExtensions() {\n',
+            )
+        )
         for command in [x for x in self.vk.commands.values() if x.extensions]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'    {command.name[2:]} = nullptr;\n')
             out.extend([f'#endif //{command.protect}\n'] if command.protect else [])
 
-        out.append('}\n')
-
-        out.append('} // namespace vk')
+        out.extend(('}\n', '} // namespace vk'))
         self.write(''.join(out))

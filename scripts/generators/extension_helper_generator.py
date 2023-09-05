@@ -107,12 +107,12 @@ class ExtensionHelperOutputGenerator(BaseGenerator):
 
     def generate(self):
         # [ Feature name | name in struct InstanceExtensions ]
-        fieldName = dict()
+        fieldName = {}
         # [ Extension name : List[Extension | Version] ]
-        requiredExpression = dict()
+        requiredExpression = {}
         for extension in self.vk.extensions.values():
             fieldName[extension.name] = extension.name.lower()
-            requiredExpression[extension.name] = list()
+            requiredExpression[extension.name] = []
             if extension.depends is not None:
                 # This is a work around for https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/5372
                 temp = re.sub(r',VK_VERSION_1_\d+', '', extension.depends)
@@ -122,8 +122,8 @@ class ExtensionHelperOutputGenerator(BaseGenerator):
         for version, field in APISpecific.getVersionFieldNameDict(self.targetApiName).items():
             fieldName[version] = field
 
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -144,10 +144,9 @@ class ExtensionHelperOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 
 #include <string>
@@ -196,12 +195,15 @@ Times to NOT use it
 [[maybe_unused]] static bool IsExtEnabledByCreateinfo(ExtEnabled extension) {
     return (extension == kEnabledByCreateinfo);
 };
-''')
-
-        out.append('\nstruct InstanceExtensions {\n')
-        for name in APISpecific.getVersionFieldNameDict(self.targetApiName).values():
-            out.append(f'    ExtEnabled {name}{{kNotEnabled}};\n')
-
+''',
+            '\nstruct InstanceExtensions {\n',
+        ]
+        out.extend(
+            f'    ExtEnabled {name}{{kNotEnabled}};\n'
+            for name in APISpecific.getVersionFieldNameDict(
+                self.targetApiName
+            ).values()
+        )
         out.extend([f'    ExtEnabled {ext.name.lower()}{{kNotEnabled}};\n' for ext in self.vk.extensions.values() if ext.instance])
 
         out.append('''
@@ -220,9 +222,12 @@ Times to NOT use it
     static const InstanceInfoMap &get_info_map() {
         static const InstanceInfoMap info_map = {
 ''')
-        for version, name in APISpecific.getVersionFieldNameDict(self.targetApiName).items():
-            out.append(f'            {{"{version}", InstanceInfo(&InstanceExtensions::{name}, {{}})}},\n')
-
+        out.extend(
+            f'            {{"{version}", InstanceInfo(&InstanceExtensions::{name}, {{}})}},\n'
+            for version, name in APISpecific.getVersionFieldNameDict(
+                self.targetApiName
+            ).items()
+        )
         for extension in [x for x in self.vk.extensions.values() if x.instance]:
             out.extend([f'#ifdef {extension.protect}\n'] if extension.protect else [])
             reqs = ''
@@ -261,8 +266,8 @@ Times to NOT use it
         out.append('''
         // Initialize struct data, robust to invalid pCreateInfo
         auto api_version = NormalizeApiVersion(requested_api_version);''')
-        for version_name, promoted_var_name in promoted_var_names.items():
-            out.append(f'''
+        out.extend(
+            f'''
         if (api_version >= {version_name.replace('_VERSION_', '_API_VERSION_')}) {{
             auto info = get_info("{version_name}");
             if (info.state) this->*(info.state) = kEnabledByCreateinfo;
@@ -271,9 +276,12 @@ Times to NOT use it
                 assert(info.state);
                 if (info.state) this->*(info.state) = kEnabledByApiLevel;
             }}
-        }}''')
-
-        out.append('''
+        }}'''
+            for version_name, promoted_var_name in promoted_var_names.items()
+        )
+        out.extend(
+            (
+                '''
         // CreateInfo takes precedence over promoted
         if (pCreateInfo && pCreateInfo->ppEnabledExtensionNames) {
             for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
@@ -285,16 +293,17 @@ Times to NOT use it
         return api_version;
     }
 };
-''')
-
-        out.append('static const std::set<std::string> kInstanceExtensionNames = {\n')
+''',
+                'static const std::set<std::string> kInstanceExtensionNames = {\n',
+            )
+        )
         for extension in [x for x in self.vk.extensions.values() if x.instance]:
             out.extend([f'#ifdef {extension.protect}\n'] if extension.protect else [])
             out.append(f'    {extension.nameString},\n')
             out.extend([f'#endif\n'] if extension.protect else [])
-        out.append('};\n')
-
-        out.append('\nstruct DeviceExtensions : public InstanceExtensions {\n')
+        out.extend(
+            ('};\n', '\nstruct DeviceExtensions : public InstanceExtensions {\n')
+        )
         out.extend([f'    ExtEnabled {feature_field}{{kNotEnabled}};\n' for feature_field in APISpecific.getVersionFieldNameDict(self.targetApiName).values()])
 
         out.extend([f'    ExtEnabled {ext.name.lower()}{{kNotEnabled}};\n' for ext in self.vk.extensions.values() if ext.device])
@@ -315,9 +324,12 @@ Times to NOT use it
     static const DeviceInfoMap &get_info_map() {
         static const DeviceInfoMap info_map = {
 ''')
-        for version, field in APISpecific.getVersionFieldNameDict(self.targetApiName).items():
-            out.append(f'            {{"{version}", DeviceInfo(&DeviceExtensions::{field}, {{}})}},\n')
-
+        out.extend(
+            f'            {{"{version}", DeviceInfo(&DeviceExtensions::{field}, {{}})}},\n'
+            for version, field in APISpecific.getVersionFieldNameDict(
+                self.targetApiName
+            ).items()
+        )
         for extension in [x for x in self.vk.extensions.values() if x.device]:
             out.extend([f'#ifdef {extension.protect}\n'] if extension.protect else [])
             reqs = ''
@@ -364,8 +376,8 @@ Times to NOT use it
         out.append('''
         // Initialize struct data, robust to invalid pCreateInfo
         auto api_version = NormalizeApiVersion(requested_api_version);''')
-        for version_name, promoted_var_name in promoted_var_names.items():
-            out.append(f'''
+        out.extend(
+            f'''
         if (api_version >= {version_name.replace('_VERSION_', '_API_VERSION_')}) {{
             auto info = get_info("{version_name}");
             if (info.state) this->*(info.state) = kEnabledByCreateinfo;
@@ -374,9 +386,12 @@ Times to NOT use it
                 assert(info.state);
                 if (info.state) this->*(info.state) = kEnabledByApiLevel;
             }}
-        }}''')
-
-        out.append('''
+        }}'''
+            for version_name, promoted_var_name in promoted_var_names.items()
+        )
+        out.extend(
+            (
+                '''
         // CreateInfo takes precedence over promoted
         if (pCreateInfo && pCreateInfo->ppEnabledExtensionNames) {
             for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
@@ -411,13 +426,13 @@ Times to NOT use it
     }
 };
 
-''')
-        out.append('static const std::set<std::string> kDeviceExtensionNames = {\n')
+''',
+                'static const std::set<std::string> kDeviceExtensionNames = {\n',
+            )
+        )
         for extension in [x for x in self.vk.extensions.values() if x.device]:
             out.extend([f'#ifdef {extension.protect}\n'] if extension.protect else [])
             out.append(f'    {extension.nameString},\n')
             out.extend([f'#endif\n'] if extension.protect else [])
-        out.append('};\n')
-
-        out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
+        out.extend(('};\n', '// NOLINTEND'))
         self.write(''.join(out))

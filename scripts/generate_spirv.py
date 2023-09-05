@@ -40,7 +40,7 @@ def identifierize(s):
     return re.sub("^[^a-zA-Z_]+", "_", s)
 
 def compile(filename, glslang_validator):
-    tmpfile = os.path.basename(filename) + '.tmp'
+    tmpfile = f'{os.path.basename(filename)}.tmp'
 
     # invoke glslangValidator
     try:
@@ -57,9 +57,10 @@ def compile(filename, glslang_validator):
 
         # determine endianness
         fmt = ("<" if data[0] == (SPIRV_MAGIC & 0xff) else ">") + "I"
-        for i in range(0, len(data), 4):
-            words.append(struct.unpack(fmt, data[i:(i + 4)])[0])
-
+        words.extend(
+            struct.unpack(fmt, data[i : (i + 4)])[0]
+            for i in range(0, len(data), 4)
+        )
         assert(words[0] == SPIRV_MAGIC)
 
     # remove temp file
@@ -114,9 +115,11 @@ static const uint32_t %s[%d] = {
 """ % (disassembled, name, len(words), "\n".join(literals))
 
     if outfilename:
-      out_file = outfilename
+        out_file = outfilename
     else:
-      out_file = os.path.join(repo_relative(f'layers/{apiname}/generated'), name + '.h')
+        out_file = os.path.join(
+            repo_relative(f'layers/{apiname}/generated'), f'{name}.h'
+        )
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
     with open(out_file, "w") as f:
         print(header, end="", file=f)
@@ -135,22 +138,23 @@ def main():
     generate_shaders = []
     if args.shader:
         if not os.path.isfile(args.shader):
-            sys.exit("Cannot find infilename " + args.shader)
+            sys.exit(f"Cannot find infilename {args.shader}")
         generate_shaders.append(args.shader)
     else:
         # Get all shaders in gpu_shaders folder
         shader_type = ['vert', 'tesc', 'tese', 'geom', 'frag', 'comp', 'mesh', 'task', 'rgen', 'rint', 'rahit', 'rchit', 'rmiss', 'rcall']
         gpu_shaders = repo_relative('layers/gpu_shaders')
-        for filename in os.listdir(gpu_shaders):
-            if (filename.split(".")[-1] in shader_type):
-                generate_shaders.append(os.path.join(gpu_shaders, filename))
-
+        generate_shaders.extend(
+            os.path.join(gpu_shaders, filename)
+            for filename in os.listdir(gpu_shaders)
+            if (filename.split(".")[-1] in shader_type)
+        )
     # default glslangValidator path
     glslang_validator =  repo_relative('external/glslang/build/install/bin/glslangValidator')
     if args.glslang:
         glslang_validator = args.glslang
     if not os.path.isfile(glslang_validator):
-        sys.exit("Cannot find glslangValidator " + glslang_validator)
+        sys.exit(f"Cannot find glslangValidator {glslang_validator}")
 
     for shader in generate_shaders:
         words, disassembled = compile(shader, glslang_validator)

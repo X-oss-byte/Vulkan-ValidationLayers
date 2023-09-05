@@ -46,9 +46,7 @@ CI_INSTALL_DIR = f'{CI_BUILD_DIR}/install'
 # Returns true if we are running in GitHub actions
 # https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
 def IsGHA():
-    if 'GITHUB_ACTION' in os.environ:
-        return True
-    return False
+    return 'GITHUB_ACTION' in os.environ
 
 # Runs a command in a directory and returns its return code.
 # Directory is project root by default, or a relative path from project root
@@ -70,7 +68,8 @@ def RunShellCmd(command, start_dir = PROJECT_SRC_DIR, env=None, verbose=False):
 
 #
 # Check if the system is Windows
-def IsWindows(): return 'windows' == platform.system().lower()
+def IsWindows():
+    return platform.system().lower() == 'windows'
 
 #
 # Prepare the Validation Layers for testing
@@ -229,7 +228,9 @@ def RunVVLTests():
     # lvt_env['VK_LOADER_DEBUG'] = 'error,warn,info'
     # lvt_env['VK_LAYER_TESTS_PRINT_DRIVER'] = '1'
 
-    lvt_env['VK_INSTANCE_LAYERS'] = 'VK_LAYER_KHRONOS_validation' + os.pathsep + 'VK_LAYER_KHRONOS_profiles'
+    lvt_env[
+        'VK_INSTANCE_LAYERS'
+    ] = f'VK_LAYER_KHRONOS_validation{os.pathsep}VK_LAYER_KHRONOS_profiles'
     lvt_env['VK_KHRONOS_PROFILES_SIMULATE_CAPABILITIES'] = 'SIMULATE_API_VERSION_BIT,SIMULATE_FEATURES_BIT,SIMULATE_PROPERTIES_BIT,SIMULATE_EXTENSIONS_BIT,SIMULATE_FORMATS_BIT,SIMULATE_QUEUE_FAMILY_PROPERTIES_BIT'
 
     # By default use the max_profile.json
@@ -244,9 +245,10 @@ def RunVVLTests():
 
     lvt_cmd = os.path.join(CI_INSTALL_DIR, 'bin', 'vk_layer_validation_tests')
 
-    # The following test(s) fail with thread sanitization enabled.
-    failing_tsan_tests = '-VkPositiveLayerTest.QueueThreading'
-    failing_tsan_tests += ':NegativeCommand.SecondaryCommandBufferRerecordedExplicitReset'
+    failing_tsan_tests = (
+        '-VkPositiveLayerTest.QueueThreading'
+        + ':NegativeCommand.SecondaryCommandBufferRerecordedExplicitReset'
+    )
     failing_tsan_tests += ':NegativeCommand.SecondaryCommandBufferRerecordedNoReset'
     failing_tsan_tests += ':NegativeSyncVal.CopyOptimalImageHazards'
     failing_tsan_tests += ':NegativeViewportInheritance.BasicUsage'
@@ -256,11 +258,13 @@ def RunVVLTests():
     failing_tsan_tests += ':PositiveSyncObject.WaitTimelineSemThreadRace'
     failing_tsan_tests += ':PositiveQuery.ResetQueryPoolFromDifferentCB'
 
-    RunShellCmd(lvt_cmd + f" --gtest_filter={failing_tsan_tests}", env=lvt_env)
+    RunShellCmd(f"{lvt_cmd} --gtest_filter={failing_tsan_tests}", env=lvt_env)
 
     print("Re-Running multithreaded tests with VK_LAYER_FINE_GRAINED_LOCKING disabled")
     lvt_env['VK_LAYER_FINE_GRAINED_LOCKING'] = '0'
-    RunShellCmd(lvt_cmd + f' --gtest_filter=*Thread*:{failing_tsan_tests}', env=lvt_env)
+    RunShellCmd(
+        f'{lvt_cmd} --gtest_filter=*Thread*:{failing_tsan_tests}', env=lvt_env
+    )
 
 def GetArgParser():
     configs = ['release', 'debug']

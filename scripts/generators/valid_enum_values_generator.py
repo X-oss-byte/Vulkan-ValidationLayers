@@ -67,8 +67,8 @@ class ValidEnumValuesOutputGenerator(BaseGenerator):
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "chassis.h"
 #include "utils/hash_vk_types.h"
 
@@ -76,8 +76,8 @@ class ValidEnumValuesOutputGenerator(BaseGenerator):
 //      Ideally "values" would be something like a static variable that is built once and this function returns
 //      a span of the container. This does not work for applications which create and destroy many instances and
 //      devices over the lifespan of the project (e.g., VLT).
-''')
-
+'''
+        ]
         for enum in [x for x in self.vk.enums.values() if x.name != 'VkStructureType' and not x.returnedOnly]:
             out.extend([f'#ifdef {enum.protect}\n'] if enum.protect else [])
             out.append(f'template<>\nstd::vector<{enum.name}> ValidationObject::ValidParamValues() const {{\n')
@@ -88,8 +88,12 @@ class ValidEnumValuesOutputGenerator(BaseGenerator):
 
             out.append(f'    static const vvl::unordered_map<const ExtEnabled DeviceExtensions::*, std::vector<{enum.name}>> Extended{enum.name}Enums = {{\n')
 
-            for extension in [x for x in enum.fieldExtensions if x not in enum.extensions]:
-                out.append(f'        {{ &DeviceExtensions::{extension.name.lower()}, {{ {", ".join([x.name for x in extension.enumFields[enum.name]])} }} }},\n')
+            out.extend(
+                f'        {{ &DeviceExtensions::{extension.name.lower()}, {{ {", ".join([x.name for x in extension.enumFields[enum.name]])} }} }},\n'
+                for extension in [
+                    x for x in enum.fieldExtensions if x not in enum.extensions
+                ]
+            )
             out.append('    };')
 
             startValue = f'values(Core{enum.name}Enums.cbegin(), Core{enum.name}Enums.cend())' if coreEnums else 'values'

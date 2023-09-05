@@ -30,10 +30,7 @@ def needSafeStruct(struct: Struct) -> bool:
         return False #  Ingore structs like VkBaseOutStructure
     if struct.sType is not None:
         return True
-    for member in struct.members:
-        if member.pointer:
-            return True
-    return False
+    return any(member.pointer for member in struct.members)
 
 class SafeStructOutputGenerator(BaseGenerator):
     def __init__(self):
@@ -116,8 +113,8 @@ class SafeStructOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <vulkan/vulkan.h>
 #include <cstdlib>
@@ -133,8 +130,8 @@ struct PNextCopyState {
 void *SafePnextCopy(const void *pNext, PNextCopyState* copy_state = {});
 void FreePnextChain(const void *pNext);
 char *SafeStringCopy(const char *in_string);
-\n''')
-
+\n'''
+        ]
         for struct in [x for x in self.vk.structs.values() if needSafeStruct(x)]:
             out.extend([f'#ifdef {struct.protect}\n'] if struct.protect else [])
             out.append(f'{"union" if struct.union else "struct"} safe_{struct.name} {{\n')
@@ -193,8 +190,8 @@ char *SafeStringCopy(const char *in_string);
         self.write("".join(out))
 
     def generateUtil(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "vk_safe_struct.h"
 #include "utils/vk_layer_utils.h"
 
@@ -233,8 +230,8 @@ void *SafePnextCopy(const void *pNext, PNextCopyState* copy_state) {
             struct_copy->pNext = SafePnextCopy(header->pNext, copy_state);
             safe_pNext = struct_copy;
             break;
-        }''')
-
+        }'''
+        ]
         for struct in [x for x in self.vk.structs.values() if x.extends]:
             out.extend([f'\n#ifdef {struct.protect}'] if struct.protect else [])
             out.append(f'''

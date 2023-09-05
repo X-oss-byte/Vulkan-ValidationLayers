@@ -52,7 +52,7 @@ def main():
     data_key = 'ICD' if args.icd else 'layer'
 
     if not os.path.isdir(source_dir):
-        print(source_dir + ' is not a directory.', file=sys.stderr)
+        print(f'{source_dir} is not a directory.', file=sys.stderr)
         return 1
 
     if not os.path.exists(target_dir):
@@ -71,9 +71,8 @@ def main():
             data = json.load(infile)
 
         # Update the path.
-        if not data_key in data:
-            raise Exception(
-                "Could not find '%s' key in %s" % (data_key, json_fname))
+        if data_key not in data:
+            raise Exception(f"Could not find '{data_key}' key in {json_fname}")
 
         # The standard validation layer has no library path.
         if 'library_path' in data[data_key]:
@@ -92,11 +91,11 @@ def main():
     else:
         relative_path_prefix = '../lib'
     file_type_suffix = '.so'
-    if args.platform == 'Windows':
-        file_type_suffix = '.dll'
-    elif args.platform == 'Darwin':
+    if args.platform == 'Darwin':
         file_type_suffix = '.dylib'
 
+    elif args.platform == 'Windows':
+        file_type_suffix = '.dll'
     # For each *.json.in template files in source dir generate actual json file
     # in target dir
     if (set(glob_slash(os.path.join(source_dir, '*.json.in'))) !=

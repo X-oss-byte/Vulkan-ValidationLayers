@@ -24,15 +24,15 @@ separator = ' |\n        '
 
 def BitSuffixed(name):
     alt_bit = ('_ANDROID', '_EXT', '_IMG', '_KHR', '_NV', '_NVX', '_SYNCVAL')
-    bit_suf = name + '_BIT'
+    bit_suf = f'{name}_BIT'
     # Since almost every bit ends with _KHR, just ignore it.
     # Otherwise some generated names end up with every other word being KHR.
-    if name.endswith('_KHR') :
-            bit_suf = name.replace('_KHR', '_BIT')
+    if name.endswith('_KHR'):
+        bit_suf = name.replace('_KHR', '_BIT')
     else:
         for alt in alt_bit:
-            if name.endswith(alt) :
-                bit_suf = name.replace(alt, '_BIT' + alt)
+            if name.endswith(alt):
+                bit_suf = name.replace(alt, f'_BIT{alt}')
                 break
     return bit_suf
 
@@ -56,16 +56,16 @@ class SyncValidationOutputGenerator(BaseGenerator):
         self.pipelineNames = []
 
         # < pipeline_name, [pipeline stages in logical order (exactly as defined in XML)] >
-        self.pipelineStages = dict()
+        self.pipelineStages = {}
 
         # < pipeline_name, [{ stage : 'stage', ordered: True/False, after : [stages], before : [stages] }]  >
         # Each stage includes ordering info but also the stages itself are ordered according to
         # order/before/after directives. So, if you need iterate over stages from specific pipeline type
         # according to all ordering constrains just iterate over the list as asual.
-        self.pipelineStagesOrdered = dict()
+        self.pipelineStagesOrdered = {}
 
         # < queue type, [stages] >
-        self.queueToStages = dict()
+        self.queueToStages = {}
 
         self.stageAccessCombo = []
 
@@ -98,9 +98,18 @@ class SyncValidationOutputGenerator(BaseGenerator):
         self.write('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
 
         # Set value to be at end of bitmask
-        self.pipelineStagePresentEngine.value = max([x.value for x in self.vk.bitmasks['VkPipelineStageFlagBits2'].flags]) + 1
-        self.accessAcquireRead.value = max([x.value for x in self.vk.bitmasks['VkAccessFlagBits2'].flags]) + 1
-        self.accessPresented.value = max([x.value for x in self.vk.bitmasks['VkAccessFlagBits2'].flags]) + 2
+        self.pipelineStagePresentEngine.value = (
+            max(
+                x.value for x in self.vk.bitmasks['VkPipelineStageFlagBits2'].flags
+            )
+            + 1
+        )
+        self.accessAcquireRead.value = (
+            max(x.value for x in self.vk.bitmasks['VkAccessFlagBits2'].flags) + 1
+        )
+        self.accessPresented.value = (
+            max(x.value for x in self.vk.bitmasks['VkAccessFlagBits2'].flags) + 2
+        )
 
         # Add into the VulkanObject so logic works as if they were in the XML
         self.vk.bitmasks['VkPipelineStageFlagBits2'].flags.append(self.pipelineStagePresentEngine)
@@ -128,7 +137,13 @@ class SyncValidationOutputGenerator(BaseGenerator):
         self.stages = [x.flag.name for x in self.vk.syncStage if x.equivalent.max]
         self.stages.append(present_stage)
         # sort self.stages based on VkPipelineStageFlagBits2 bit order
-        sort_order = {y.name : y.value for y in sorted([x for x in self.vk.bitmasks['VkPipelineStageFlagBits2'].flags], key=lambda x: x.value)}
+        sort_order = {
+            y.name: y.value
+            for y in sorted(
+                list(self.vk.bitmasks['VkPipelineStageFlagBits2'].flags),
+                key=lambda x: x.value,
+            )
+        }
         sort_order['VK_PIPELINE_STAGE_2_NONE'] = -1
         self.stages.sort(key=lambda stage: sort_order[stage])
 
@@ -144,8 +159,8 @@ class SyncValidationOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 
 #include <array>
@@ -154,33 +169,43 @@ class SyncValidationOutputGenerator(BaseGenerator):
 #include <stdint.h>
 #include <vulkan/vulkan.h>
 #include "containers/custom_containers.h"
-''')
-        out.append(f'''
+''',
+            f'''
 // Fake stages and accesses for acquire present support
-static const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_PRESENT_ENGINE_BIT_SYNCVAL = 0x{(1 << self.pipelineStagePresentEngine.value):016X}ULL;
-static const VkAccessFlagBits2 VK_ACCESS_2_PRESENT_ACQUIRE_READ_BIT_SYNCVAL = 0x{(1 << self.accessAcquireRead.value):016X}ULL;
-static const VkAccessFlagBits2 VK_ACCESS_2_PRESENT_PRESENTED_BIT_SYNCVAL = 0x{(1 << self.accessPresented.value):016X}ULL;
-''')
-
-        out.append('// Unique number for each  stage/access combination\n')
-        out.append('enum SyncStageAccessIndex {\n')
-        for access in self.stageAccessCombo:
-            out.append(f'    {access["stage_access"]} = {access["index"]},\n')
-        out.append('};\n')
-
-        out.append('\n')
-
+static const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_PRESENT_ENGINE_BIT_SYNCVAL = 0x{1 << self.pipelineStagePresentEngine.value:016X}ULL;
+static const VkAccessFlagBits2 VK_ACCESS_2_PRESENT_ACQUIRE_READ_BIT_SYNCVAL = 0x{1 << self.accessAcquireRead.value:016X}ULL;
+static const VkAccessFlagBits2 VK_ACCESS_2_PRESENT_PRESENTED_BIT_SYNCVAL = 0x{1 << self.accessPresented.value:016X}ULL;
+''',
+            '// Unique number for each  stage/access combination\n',
+            'enum SyncStageAccessIndex {\n',
+        ]
+        out.extend(
+            f'    {access["stage_access"]} = {access["index"]},\n'
+            for access in self.stageAccessCombo
+        )
+        out.extend(('};\n', '\n'))
         syncStageAccessFlagsSize = 192
-        out.append(f'using SyncStageAccessFlags = std::bitset<{syncStageAccessFlagsSize}>;\n')
-        out.append('// Unique bit for each stage/access combination\n')
-        for access in [x for x in self.stageAccessCombo if x['stage_access_bit'] is not None]:
-            out.append(f'static const SyncStageAccessFlags {access["stage_access_bit"]} = (SyncStageAccessFlags(1) << {access["stage_access"]});\n')
-
+        out.extend(
+            (
+                f'using SyncStageAccessFlags = std::bitset<{syncStageAccessFlagsSize}>;\n',
+                '// Unique bit for each stage/access combination\n',
+            )
+        )
+        out.extend(
+            f'static const SyncStageAccessFlags {access["stage_access_bit"]} = (SyncStageAccessFlags(1) << {access["stage_access"]});\n'
+            for access in [
+                x
+                for x in self.stageAccessCombo
+                if x['stage_access_bit'] is not None
+            ]
+        )
         if len(self.stageAccessCombo) > syncStageAccessFlagsSize:
             print("The bitset is too small, errors will occur, need to increase syncStageAccessFlagsSize\n")
             sys.exit(1)
 
-        out.append(f'''
+        out.extend(
+            (
+                f'''
 struct SyncStageAccessInfoType {{
     const char *name;
     VkPipelineStageFlags2 stage_mask;
@@ -192,23 +217,28 @@ struct SyncStageAccessInfoType {{
 // Array of text names and component masks for each stage/access index
 const std::array<SyncStageAccessInfoType, {len(self.stageAccessCombo)}>& syncStageAccessInfoByStageAccessIndex();
 
-''')
-
-        out.append('// Constants defining the mask of all read and write stage_access states\n')
-        out.append('static const SyncStageAccessFlags syncStageAccessReadMask = ( //  Mask of all read StageAccess bits\n')
+''',
+                '// Constants defining the mask of all read and write stage_access states\n',
+                'static const SyncStageAccessFlags syncStageAccessReadMask = ( //  Mask of all read StageAccess bits\n',
+            )
+        )
         read_list = [x['stage_access_bit'] for x in self.stageAccessCombo if x['is_read'] is not None and x['is_read'] == 'true']
-        out.append('    ')
-        out.append(' |\n    '.join(read_list))
-        out.append('\n);')
-        out.append('\n\n')
-
-        out.append('static const SyncStageAccessFlags syncStageAccessWriteMask = ( //  Mask of all write StageAccess bits\n')
+        out.extend(
+            (
+                '    ',
+                ' |\n    '.join(read_list),
+                '\n);',
+                '\n\n',
+                'static const SyncStageAccessFlags syncStageAccessWriteMask = ( //  Mask of all write StageAccess bits\n',
+            )
+        )
         write_list = [x['stage_access_bit'] for x in self.stageAccessCombo if x['is_read'] is not None and x['is_read'] != 'true']
-        out.append('    ')
-        out.append(' |\n    '.join(write_list))
-        out.append('\n);\n')
-
-        out.append('''
+        out.extend(
+            (
+                '    ',
+                ' |\n    '.join(write_list),
+                '\n);\n',
+                '''
 // Bit order mask of stage_access bit for each stage
 const std::map<VkPipelineStageFlags2, SyncStageAccessFlags>& syncStageAccessMaskByStageBit();
 
@@ -226,8 +256,9 @@ const std::map<VkPipelineStageFlags2, VkPipelineStageFlags2>& syncLogicallyEarli
 
 // Masks of logically later stage flags for a given stage flag
 const std::map<VkPipelineStageFlags2, VkPipelineStageFlags2>& syncLogicallyLaterStages();
-''')
-
+''',
+            )
+        )
         self.write("".join(out))
 
     def generateSource(self):

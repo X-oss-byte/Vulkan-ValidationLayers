@@ -122,59 +122,59 @@ class ObjectTrackerOutputGenerator(BaseGenerator):
             ]
         # These VUIDS are not implicit, but are best handled in this layer. Codegen for vkDestroy calls will generate a key
         # which is translated here into a good VU.  Saves ~40 checks.
-        self.manual_vuids = dict()
+        self.manual_vuids = {}
         self.manual_vuids = {
-            "fence-compatalloc": "\"VUID-vkDestroyFence-fence-01121\"",
-            "fence-nullalloc": "\"VUID-vkDestroyFence-fence-01122\"",
-            "event-compatalloc": "\"VUID-vkDestroyEvent-event-01146\"",
-            "event-nullalloc": "\"VUID-vkDestroyEvent-event-01147\"",
-            "buffer-compatalloc": "\"VUID-vkDestroyBuffer-buffer-00923\"",
-            "buffer-nullalloc": "\"VUID-vkDestroyBuffer-buffer-00924\"",
-            "image-compatalloc": "\"VUID-vkDestroyImage-image-01001\"",
-            "image-nullalloc": "\"VUID-vkDestroyImage-image-01002\"",
-            "shaderModule-compatalloc": "\"VUID-vkDestroyShaderModule-shaderModule-01092\"",
-            "shaderModule-nullalloc": "\"VUID-vkDestroyShaderModule-shaderModule-01093\"",
-            "pipeline-compatalloc": "\"VUID-vkDestroyPipeline-pipeline-00766\"",
-            "pipeline-nullalloc": "\"VUID-vkDestroyPipeline-pipeline-00767\"",
-            "sampler-compatalloc": "\"VUID-vkDestroySampler-sampler-01083\"",
-            "sampler-nullalloc": "\"VUID-vkDestroySampler-sampler-01084\"",
-            "renderPass-compatalloc": "\"VUID-vkDestroyRenderPass-renderPass-00874\"",
-            "renderPass-nullalloc": "\"VUID-vkDestroyRenderPass-renderPass-00875\"",
-            "descriptorUpdateTemplate-compatalloc": "\"VUID-vkDestroyDescriptorUpdateTemplate-descriptorSetLayout-00356\"",
-            "descriptorUpdateTemplate-nullalloc": "\"VUID-vkDestroyDescriptorUpdateTemplate-descriptorSetLayout-00357\"",
-            "imageView-compatalloc": "\"VUID-vkDestroyImageView-imageView-01027\"",
-            "imageView-nullalloc": "\"VUID-vkDestroyImageView-imageView-01028\"",
-            "pipelineCache-compatalloc": "\"VUID-vkDestroyPipelineCache-pipelineCache-00771\"",
-            "pipelineCache-nullalloc": "\"VUID-vkDestroyPipelineCache-pipelineCache-00772\"",
-            "pipelineLayout-compatalloc": "\"VUID-vkDestroyPipelineLayout-pipelineLayout-00299\"",
-            "pipelineLayout-nullalloc": "\"VUID-vkDestroyPipelineLayout-pipelineLayout-00300\"",
-            "descriptorSetLayout-compatalloc": "\"VUID-vkDestroyDescriptorSetLayout-descriptorSetLayout-00284\"",
-            "descriptorSetLayout-nullalloc": "\"VUID-vkDestroyDescriptorSetLayout-descriptorSetLayout-00285\"",
-            "semaphore-compatalloc": "\"VUID-vkDestroySemaphore-semaphore-01138\"",
-            "semaphore-nullalloc": "\"VUID-vkDestroySemaphore-semaphore-01139\"",
-            "queryPool-compatalloc": "\"VUID-vkDestroyQueryPool-queryPool-00794\"",
-            "queryPool-nullalloc": "\"VUID-vkDestroyQueryPool-queryPool-00795\"",
-            "bufferView-compatalloc": "\"VUID-vkDestroyBufferView-bufferView-00937\"",
-            "bufferView-nullalloc": "\"VUID-vkDestroyBufferView-bufferView-00938\"",
-            "surface-compatalloc": "\"VUID-vkDestroySurfaceKHR-surface-01267\"",
-            "surface-nullalloc": "\"VUID-vkDestroySurfaceKHR-surface-01268\"",
-            "framebuffer-compatalloc": "\"VUID-vkDestroyFramebuffer-framebuffer-00893\"",
-            "framebuffer-nullalloc": "\"VUID-vkDestroyFramebuffer-framebuffer-00894\"",
-            "VkGraphicsPipelineCreateInfo-basePipelineHandle": "\"VUID-VkGraphicsPipelineCreateInfo-flags-07984\"",
-            "VkComputePipelineCreateInfo-basePipelineHandle": "\"VUID-VkComputePipelineCreateInfo-flags-07984\"",
-            "VkRayTracingPipelineCreateInfoNV-basePipelineHandle": "\"VUID-VkRayTracingPipelineCreateInfoNV-flags-07984\"",
-			"VkRayTracingPipelineCreateInfoKHR-basePipelineHandle": "\"VUID-VkRayTracingPipelineCreateInfoKHR-flags-07984\"",
-            "VkVideoSessionKHR-videoSession-compatalloc": "\"VUID-vkDestroyVideoSessionKHR-videoSession-07193\"",
-            "VkVideoSessionKHR-videoSession-nullalloc": "\"VUID-vkDestroyVideoSessionKHR-videoSession-07194\"",
-            "VkVideoSessionParametersKHR-videoSessionParameters-compatalloc": "\"VUID-vkDestroyVideoSessionParametersKHR-videoSessionParameters-07213\"",
-            "VkVideoSessionParametersKHR-videoSessionParameters-nullalloc": "\"VUID-vkDestroyVideoSessionParametersKHR-videoSessionParameters-07214\"",
-            "VkAccelerationStructureKHR-accelerationStructure-compatalloc": "\"VUID-vkDestroyAccelerationStructureKHR-accelerationStructure-02443\"",
-            "VkAccelerationStructureKHR-accelerationStructure-nullalloc": "\"VUID-vkDestroyAccelerationStructureKHR-accelerationStructure-02444\"",
-            "VkAccelerationStructureNV-accelerationStructure-compatalloc": "\"VUID-vkDestroyAccelerationStructureNV-accelerationStructure-03753\"",
-            "VkAccelerationStructureNV-accelerationStructure-nullalloc": "\"VUID-vkDestroyAccelerationStructureNV-accelerationStructure-03754\"",
-            "shader-compatalloc": "\"VUID-vkDestroyShaderEXT-pAllocator-08483\"",
-            "shader-nullalloc": "\"VUID-vkDestroyShaderEXT-pAllocator-08484\"",
-           }
+         "fence-compatalloc": "\"VUID-vkDestroyFence-fence-01121\"",
+         "fence-nullalloc": "\"VUID-vkDestroyFence-fence-01122\"",
+         "event-compatalloc": "\"VUID-vkDestroyEvent-event-01146\"",
+         "event-nullalloc": "\"VUID-vkDestroyEvent-event-01147\"",
+         "buffer-compatalloc": "\"VUID-vkDestroyBuffer-buffer-00923\"",
+         "buffer-nullalloc": "\"VUID-vkDestroyBuffer-buffer-00924\"",
+         "image-compatalloc": "\"VUID-vkDestroyImage-image-01001\"",
+         "image-nullalloc": "\"VUID-vkDestroyImage-image-01002\"",
+         "shaderModule-compatalloc": "\"VUID-vkDestroyShaderModule-shaderModule-01092\"",
+         "shaderModule-nullalloc": "\"VUID-vkDestroyShaderModule-shaderModule-01093\"",
+         "pipeline-compatalloc": "\"VUID-vkDestroyPipeline-pipeline-00766\"",
+         "pipeline-nullalloc": "\"VUID-vkDestroyPipeline-pipeline-00767\"",
+         "sampler-compatalloc": "\"VUID-vkDestroySampler-sampler-01083\"",
+         "sampler-nullalloc": "\"VUID-vkDestroySampler-sampler-01084\"",
+         "renderPass-compatalloc": "\"VUID-vkDestroyRenderPass-renderPass-00874\"",
+         "renderPass-nullalloc": "\"VUID-vkDestroyRenderPass-renderPass-00875\"",
+         "descriptorUpdateTemplate-compatalloc": "\"VUID-vkDestroyDescriptorUpdateTemplate-descriptorSetLayout-00356\"",
+         "descriptorUpdateTemplate-nullalloc": "\"VUID-vkDestroyDescriptorUpdateTemplate-descriptorSetLayout-00357\"",
+         "imageView-compatalloc": "\"VUID-vkDestroyImageView-imageView-01027\"",
+         "imageView-nullalloc": "\"VUID-vkDestroyImageView-imageView-01028\"",
+         "pipelineCache-compatalloc": "\"VUID-vkDestroyPipelineCache-pipelineCache-00771\"",
+         "pipelineCache-nullalloc": "\"VUID-vkDestroyPipelineCache-pipelineCache-00772\"",
+         "pipelineLayout-compatalloc": "\"VUID-vkDestroyPipelineLayout-pipelineLayout-00299\"",
+         "pipelineLayout-nullalloc": "\"VUID-vkDestroyPipelineLayout-pipelineLayout-00300\"",
+         "descriptorSetLayout-compatalloc": "\"VUID-vkDestroyDescriptorSetLayout-descriptorSetLayout-00284\"",
+         "descriptorSetLayout-nullalloc": "\"VUID-vkDestroyDescriptorSetLayout-descriptorSetLayout-00285\"",
+         "semaphore-compatalloc": "\"VUID-vkDestroySemaphore-semaphore-01138\"",
+         "semaphore-nullalloc": "\"VUID-vkDestroySemaphore-semaphore-01139\"",
+         "queryPool-compatalloc": "\"VUID-vkDestroyQueryPool-queryPool-00794\"",
+         "queryPool-nullalloc": "\"VUID-vkDestroyQueryPool-queryPool-00795\"",
+         "bufferView-compatalloc": "\"VUID-vkDestroyBufferView-bufferView-00937\"",
+         "bufferView-nullalloc": "\"VUID-vkDestroyBufferView-bufferView-00938\"",
+         "surface-compatalloc": "\"VUID-vkDestroySurfaceKHR-surface-01267\"",
+         "surface-nullalloc": "\"VUID-vkDestroySurfaceKHR-surface-01268\"",
+         "framebuffer-compatalloc": "\"VUID-vkDestroyFramebuffer-framebuffer-00893\"",
+         "framebuffer-nullalloc": "\"VUID-vkDestroyFramebuffer-framebuffer-00894\"",
+         "VkGraphicsPipelineCreateInfo-basePipelineHandle": "\"VUID-VkGraphicsPipelineCreateInfo-flags-07984\"",
+         "VkComputePipelineCreateInfo-basePipelineHandle": "\"VUID-VkComputePipelineCreateInfo-flags-07984\"",
+         "VkRayTracingPipelineCreateInfoNV-basePipelineHandle": "\"VUID-VkRayTracingPipelineCreateInfoNV-flags-07984\"",
+        "VkRayTracingPipelineCreateInfoKHR-basePipelineHandle": "\"VUID-VkRayTracingPipelineCreateInfoKHR-flags-07984\"",
+         "VkVideoSessionKHR-videoSession-compatalloc": "\"VUID-vkDestroyVideoSessionKHR-videoSession-07193\"",
+         "VkVideoSessionKHR-videoSession-nullalloc": "\"VUID-vkDestroyVideoSessionKHR-videoSession-07194\"",
+         "VkVideoSessionParametersKHR-videoSessionParameters-compatalloc": "\"VUID-vkDestroyVideoSessionParametersKHR-videoSessionParameters-07213\"",
+         "VkVideoSessionParametersKHR-videoSessionParameters-nullalloc": "\"VUID-vkDestroyVideoSessionParametersKHR-videoSessionParameters-07214\"",
+         "VkAccelerationStructureKHR-accelerationStructure-compatalloc": "\"VUID-vkDestroyAccelerationStructureKHR-accelerationStructure-02443\"",
+         "VkAccelerationStructureKHR-accelerationStructure-nullalloc": "\"VUID-vkDestroyAccelerationStructureKHR-accelerationStructure-02444\"",
+         "VkAccelerationStructureNV-accelerationStructure-compatalloc": "\"VUID-vkDestroyAccelerationStructureNV-accelerationStructure-03753\"",
+         "VkAccelerationStructureNV-accelerationStructure-nullalloc": "\"VUID-vkDestroyAccelerationStructureNV-accelerationStructure-03754\"",
+         "shader-compatalloc": "\"VUID-vkDestroyShaderEXT-pAllocator-08483\"",
+         "shader-nullalloc": "\"VUID-vkDestroyShaderEXT-pAllocator-08484\"",
+        }
 
     # Work up Handle's parents to see if it VkDevice
     def isParentDevice(self, handle: Handle) -> bool:
@@ -261,8 +261,8 @@ void PostCallRecordGetPhysicalDeviceDisplayPlaneProperties2KHR(VkPhysicalDevice 
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "chassis.h"
 #include "object_tracker/object_lifetime_validation.h"
 ReadLockGuard ObjectLifetimes::ReadLock() const { return ReadLockGuard(validation_object_mutex, std::defer_lock); }
@@ -272,15 +272,15 @@ WriteLockGuard ObjectLifetimes::WriteLock() { return WriteLockGuard(validation_o
 bool ObjectLifetimes::ReportUndestroyedInstanceObjects(VkInstance instance, const Location& loc) const {
     bool skip = false;
     const std::string error_code = "%s";
-''' % APISpecific.getUndestroyedObjectVUID(self.targetApiName, 'instance'))
+'''
+            % APISpecific.getUndestroyedObjectVUID(self.targetApiName, 'instance')
+        ]
         for handle in [x for x in self.vk.handles.values() if not x.dispatchable and not self.isParentDevice(x)]:
             comment_prefix = ''
             if APISpecific.IsImplicitlyDestroyed(self.targetApiName, handle.name):
                 comment_prefix = '// No destroy API or implicitly freed/destroyed -- do not report: '
             out.append(f'    {comment_prefix}skip |= ReportLeakedInstanceObjects(instance, kVulkanObjectType{handle.name[2:]}, error_code, loc);\n')
-        out.append('    return skip;\n')
-        out.append('}\n')
-
+        out.extend(('    return skip;\n', '}\n'))
         out.append('''
 bool ObjectLifetimes::ReportUndestroyedDeviceObjects(VkDevice device, const Location& loc) const {
     bool skip = false;
@@ -297,18 +297,36 @@ bool ObjectLifetimes::ReportUndestroyedDeviceObjects(VkDevice device, const Loca
             if APISpecific.IsImplicitlyDestroyed(self.targetApiName, handle.name):
                 comment_prefix = '// No destroy API or implicitly freed/destroyed -- do not report: '
             out.append(f'    {comment_prefix}skip |= ReportLeakedDeviceObjects(device, kVulkanObjectType{handle.name[2:]}, error_code, loc);\n')
-        out.append('    return skip;\n')
-        out.append('}\n')
-
-        out.append('\nvoid ObjectLifetimes::DestroyLeakedInstanceObjects() {\n')
-        for handle in [x for x in self.vk.handles.values() if not x.dispatchable and not self.isParentDevice(x)]:
-            out.append(f'    DestroyUndestroyedObjects(kVulkanObjectType{handle.name[2:]});\n')
-        out.append('}\n')
-
-        out.append('\nvoid ObjectLifetimes::DestroyLeakedDeviceObjects() {\n')
-        out.append('    DestroyUndestroyedObjects(kVulkanObjectTypeCommandBuffer);\n')
-        for handle in [x for x in self.vk.handles.values() if not x.dispatchable and self.isParentDevice(x)]:
-            out.append(f'    DestroyUndestroyedObjects(kVulkanObjectType{handle.name[2:]});\n')
+        out.extend(
+            (
+                '    return skip;\n',
+                '}\n',
+                '\nvoid ObjectLifetimes::DestroyLeakedInstanceObjects() {\n',
+            )
+        )
+        out.extend(
+            f'    DestroyUndestroyedObjects(kVulkanObjectType{handle.name[2:]});\n'
+            for handle in [
+                x
+                for x in self.vk.handles.values()
+                if not x.dispatchable and not self.isParentDevice(x)
+            ]
+        )
+        out.extend(
+            (
+                '}\n',
+                '\nvoid ObjectLifetimes::DestroyLeakedDeviceObjects() {\n',
+                '    DestroyUndestroyedObjects(kVulkanObjectTypeCommandBuffer);\n',
+            )
+        )
+        out.extend(
+            f'    DestroyUndestroyedObjects(kVulkanObjectType{handle.name[2:]});\n'
+            for handle in [
+                x
+                for x in self.vk.handles.values()
+                if not x.dispatchable and self.isParentDevice(x)
+            ]
+        )
         out.append('}\n')
 
         for command in [x for x in self.vk.commands.values() if x.name not in self.no_autogen_list]:
@@ -323,19 +341,18 @@ bool ObjectLifetimes::ReportUndestroyedDeviceObjects(VkDevice device, const Loca
             if pre_call_validate:
                 prePrototype = prototype.replace(')', ',\n    const ErrorObject&                          error_obj)')
                 out.append('\n')
-                out.append(f'bool ObjectLifetimes::PreCallValidate{prePrototype} const {{\n')
-                out.append('    bool skip = false;\n')
-                out.append(f'{pre_call_validate}\n')
-                out.append('    return skip;\n')
-                out.append('}\n')
-
+                out.extend(
+                    (
+                        f'bool ObjectLifetimes::PreCallValidate{prePrototype} const {{\n',
+                        '    bool skip = false;\n',
+                    )
+                )
+                out.extend((f'{pre_call_validate}\n', '    return skip;\n', '}\n'))
             # Output PreCallRecordAPI function if necessary
             if pre_call_record:
                 out.append('\n')
                 out.append(f'void ObjectLifetimes::PreCallRecord{prototype} {{\n')
-                out.append(f'{pre_call_record}\n')
-                out.append('}\n')
-
+                out.extend((f'{pre_call_record}\n', '}\n'))
             # Output PosCallRecordAPI function if necessary
             if post_call_record:
                 out.append('\n')
@@ -353,9 +370,7 @@ bool ObjectLifetimes::ReportUndestroyedDeviceObjects(VkDevice device, const Loca
                         postPrototype = postPrototype.replace('{', f'{{\n    if ({failureCondition}) return;')
                 out.append(postPrototype)
 
-                out.append(f'{post_call_record}\n')
-                out.append('}\n')
-
+                out.extend((f'{post_call_record}\n', '}\n'))
             out.extend([f'#endif // {command.protect}\n'] if command.protect else [])
 
         self.write("".join(out))
@@ -375,22 +390,20 @@ bool ObjectLifetimes::ReportUndestroyedDeviceObjects(VkDevice device, const Loca
         if not APISpecific.AreAllocVUIDsEnabled(self.targetApiName):
             return "kVUIDUndefined"
 
-        lookup_string = '%s-%s' %(param.name, allocType)
+        lookup_string = f'{param.name}-{allocType}'
         vuid = self.manual_vuids.get(lookup_string, None)
         if vuid is not None:
             return vuid
-        lookup_string = '%s-%s-%s' %(param.type, param.name, allocType)
+        lookup_string = f'{param.type}-{param.name}-{allocType}'
         vuid = self.manual_vuids.get(lookup_string, None)
-        if vuid is not None:
-            return vuid
-        return "kVUIDUndefined"
+        return vuid if vuid is not None else "kVUIDUndefined"
 
     # recursively walks struct members (and command params)
     # parentName == Struct or Command calling into this
     # topCommand == The command called from (when in a struct)
     def validateObjects(self, members: list[Member], indent: str, prefix: str, arrayIndex: int, parentName: str, topCommand: str, errorLoc: str, isTopLevelCreate: bool) -> str:
         pre_call_validate = ''
-        index = f'index{str(arrayIndex)}'
+        index = f'index{arrayIndex}'
         arrayIndex += 1
         # Process any objects in this structure and recurse for any sub-structs in this struct
         for member in members:
@@ -445,24 +458,23 @@ bool ObjectLifetimes::ReportUndestroyedDeviceObjects(VkDevice device, const Loca
                             parentVUID = "\"VUID-vkCreateImageView-image-09179\""
 
                 if member.length:
-                    location = f'{errorLoc}.dot(Field::{member.name}, {index})'
-                    countName = f'{prefix}{member.length}'
-                    pre_call_validate += addIndent(indent,
-f'''if (({countName} > 0) && ({prefix}{member.name})) {{
+                                    location = f'{errorLoc}.dot(Field::{member.name}, {index})'
+                                    countName = f'{prefix}{member.length}'
+                                    pre_call_validate += addIndent(indent,
+                    f'''if (({countName} > 0) && ({prefix}{member.name})) {{
     for (uint32_t {index} = 0; {index} < {countName}; ++{index}) {{
         skip |= ValidateObject({prefix}{member.name}[{index}], kVulkanObjectType{member.type[2:]}, {nullAllowed}, {paramVUID}, {parentVUID}, {location});
     }}
 }}''')
                 elif 'basePipelineHandle' in member.name:
                     pre_call_validate += f'{indent}if (({prefix}flags & VK_PIPELINE_CREATE_DERIVATIVE_BIT) && ({prefix}basePipelineIndex == -1))\n'
-                    manual_vuid_index = parentName + '-' + member.name
+                    manual_vuid_index = f'{parentName}-{member.name}'
                     paramVUID = self.manual_vuids.get(manual_vuid_index, "kVUIDUndefined")
                     pre_call_validate += f'{indent}    skip |= ValidateObject({prefix}{member.name}, kVulkanObjectType{member.type[2:]}, false, {paramVUID}, {parentVUID}, error_obj.location);\n'
                 else:
                     location = f'{errorLoc}.dot(Field::{member.name})'
                     pre_call_validate += f'{indent}skip |= ValidateObject({prefix}{member.name}, kVulkanObjectType{member.type[2:]}, {nullAllowed}, {paramVUID}, {parentVUID}, {location});\n'
 
-            # Handle Structs that contain objects at some level
             elif member.type in self.vk.structs:
                 struct = self.vk.structs[member.type]
                 # Structs at first level will have an object
@@ -521,13 +533,11 @@ f'''if (({countName} > 0) && ({prefix}{member.name})) {{
         # Handle object create operations if last parameter is created by this call
         if isCreate:
             handle_type = command.params[-1].type
-            isCreatePipelines = 'CreateGraphicsPipelines' in command.name or 'CreateComputePipelines' in command.name or 'CreateRayTracingPipelines' in command.name
-            isCreateShaders = 'CreateShaders' in command.name
-
             if handle_type in self.vk.handles:
                 # Check for special case where multiple handles are returned
                 objectArray = command.params[-1].length is not None
 
+                isCreatePipelines = 'CreateGraphicsPipelines' in command.name or 'CreateComputePipelines' in command.name or 'CreateRayTracingPipelines' in command.name
                 if objectArray:
                     if isCreatePipelines:
                         post_call_record += f'{indent}if (VK_ERROR_VALIDATION_FAILED_EXT == record_obj.result) return;\n'
@@ -537,6 +547,8 @@ f'''if (({countName} > 0) && ({prefix}{member.name})) {{
                     countIsPointer = '*' if command.params[-2].type == 'uint32_t' and command.params[-2].pointer else ''
                     post_call_record += f'{indent}for (uint32_t index = 0; index < {countIsPointer}{command.params[-1].length}; index++) {{\n'
                     indent = incIndent(indent)
+
+                isCreateShaders = 'CreateShaders' in command.name
 
                 if isCreatePipelines:
                     post_call_record += f'{indent}if (!pPipelines[index]) continue;\n'
@@ -551,7 +563,6 @@ f'''if (({countName} > 0) && ({prefix}{member.name})) {{
                     post_call_record += f'{indent}}}\n'
                     indent = decIndent(indent)
                     post_call_record += f'{indent}}}\n'
-            # Physical device groups are not handles, but a set of handles, they need to be tracked as well
             elif handle_type == 'VkPhysicalDeviceGroupProperties':
                 post_call_record += f'''{indent}if ({command.params[-1].name}) {{
 {indent}{indent}const RecordObject record_obj(vvl::Func::vkEnumeratePhysicalDevices, VK_SUCCESS);

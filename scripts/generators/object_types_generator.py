@@ -29,16 +29,20 @@ class ObjectTypesOutputGenerator(BaseGenerator):
         # Helper for VkDebugReportObjectTypeEXT
         # Maps [ 'VkBuffer' : 'VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT' ]
         # Will be 'VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT' if no type
-        debugReportObject = dict()
+        debugReportObject = {}
 
         # Search all fields of the Enum to see if has a DEBUG_REPORT_OBJECT
         for handle in self.vk.handles.values():
             debugObjects = ([enum.name for enum in self.vk.enums['VkDebugReportObjectTypeEXT'].fields if f'{handle.type[3:]}_EXT' in enum.name])
-            object = 'VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT' if len(debugObjects) == 0 else debugObjects[0]
+            object = (
+                'VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT'
+                if not debugObjects
+                else debugObjects[0]
+            )
             debugReportObject[handle.name] = object
 
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -59,67 +63,85 @@ class ObjectTypesOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 #include "utils/cast_utils.h"
-\n''')
-
-        out.append('''
+\n''',
+            '''
 // Object Type enum for validation layer internal object handling
 typedef enum VulkanObjectType {
-    kVulkanObjectTypeUnknown = 0,\n''')
-        for count, handle in enumerate(self.vk.handles.values(), start=1):
-            out.append(f'    kVulkanObjectType{handle.name[2:]} = {count},\n')
-        out.append(f'    kVulkanObjectTypeMax = {len(self.vk.handles) + 1}\n')
-        out.append('} VulkanObjectType;\n')
-
-        out.append('''
+    kVulkanObjectTypeUnknown = 0,\n''',
+        ]
+        out.extend(
+            f'    kVulkanObjectType{handle.name[2:]} = {count},\n'
+            for count, handle in enumerate(self.vk.handles.values(), start=1)
+        )
+        out.extend(
+            (
+                f'    kVulkanObjectTypeMax = {len(self.vk.handles) + 1}\n',
+                '} VulkanObjectType;\n',
+                '''
 // Array of object name strings for OBJECT_TYPE enum conversion
 static const char * const object_string[kVulkanObjectTypeMax] = {
-    "VkNonDispatchableHandle",\n''')
+    "VkNonDispatchableHandle",\n''',
+            )
+        )
         out.extend([f'    "{handle.name}",\n' for handle in self.vk.handles.values()])
-        out.append('};\n')
-
-        out.append('''
+        out.extend(
+            (
+                '};\n',
+                '''
 // Helper array to get Vulkan VK_EXT_debug_report object type enum from the internal layers version
 const VkDebugReportObjectTypeEXT get_debug_report_enum[] = {
-    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, // kVulkanObjectTypeUnknown\n''')
+    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, // kVulkanObjectTypeUnknown\n''',
+            )
+        )
         out.extend([f'    {debugReportObject[handle.name]},   // kVulkanObjectType{handle.name[2:]}\n' for handle in self.vk.handles.values()])
-        out.append('};\n')
-
-        out.append('''
+        out.extend(
+            (
+                '};\n',
+                '''
 // Helper function to get Official Vulkan VkObjectType enum from the internal layers version
 static inline VkObjectType ConvertVulkanObjectToCoreObject(VulkanObjectType internal_type) {
-    switch (internal_type) {\n''')
+    switch (internal_type) {\n''',
+            )
+        )
         out.extend([f'        case kVulkanObjectType{handle.name[2:]}: return {handle.type};\n' for handle in self.vk.handles.values()])
-        out.append('''        default: return VK_OBJECT_TYPE_UNKNOWN;
+        out.extend(
+            (
+                '''        default: return VK_OBJECT_TYPE_UNKNOWN;
     }
-};\n''')
-
-        out.append('''
+};\n''',
+                '''
 // Helper function to get internal layers object ids from the official Vulkan VkObjectType enum
 static inline VulkanObjectType ConvertCoreObjectToVulkanObject(VkObjectType vulkan_object_type) {
-    switch (vulkan_object_type) {\n''')
+    switch (vulkan_object_type) {\n''',
+            )
+        )
         out.extend([f'        case {handle.type}: return kVulkanObjectType{handle.name[2:]};\n' for handle in self.vk.handles.values()])
-        out.append('''        default: return kVulkanObjectTypeUnknown;
+        out.extend(
+            (
+                '''        default: return kVulkanObjectTypeUnknown;
     }
-};\n''')
-
-        out.append('''
+};\n''',
+                '''
 static inline VkDebugReportObjectTypeEXT convertCoreObjectToDebugReportObject(VkObjectType core_report_obj) {
     switch (core_report_obj) {
-        case VK_OBJECT_TYPE_UNKNOWN: return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;\n''')
+        case VK_OBJECT_TYPE_UNKNOWN: return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;\n''',
+            )
+        )
         for handle in self.vk.handles.values():
             object = debugReportObject[handle.name]
             if object != 'VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT':
                 out.append(f'        case {handle.type}: return {object};\n')
-        out.append('''        default: return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;
+        out.extend(
+            (
+                '''        default: return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;
     }
-};\n''')
-
-        out.append('''
+};\n''',
+                '''
 // Traits objects from each type statically map from Vk<handleType> to the various enums
 template <typename VkType> struct VkHandleInfo {};
 template <VulkanObjectType id> struct VulkanObjectTypeInfo {};
@@ -143,8 +165,9 @@ template <> struct VulkanObjectTypeInfo<kVulkanObjectTypeUnknown> {
     typedef VkNonDispatchableHandle Type;
 };
 
-#endif //  VK_DEFINE_HANDLE logic duplication\n''')
-
+#endif //  VK_DEFINE_HANDLE logic duplication\n''',
+            )
+        )
         for handle in [x for x in self.vk.handles.values() if x.dispatchable]:
             out.extend([f'#ifdef {handle.protect}\n'] if handle.protect else [])
             out.append(f'''
@@ -177,9 +200,10 @@ template <> struct VulkanObjectTypeInfo<kVulkanObjectType{handle.name[2:]}> {{
     typedef {handle.name} Type;
 }};\n''')
             out.extend([f'#endif //{handle.protect}\n'] if handle.protect else [])
-        out.append('#endif // TYPESAFE_NONDISPATCHABLE_HANDLES\n')
-
-        out.append('''
+        out.extend(
+            (
+                '#endif // TYPESAFE_NONDISPATCHABLE_HANDLES\n',
+                '''
 struct VulkanTypedHandle {
     uint64_t handle;
     VulkanObjectType type;
@@ -205,6 +229,8 @@ struct VulkanTypedHandle {
         handle(CastToUint64(VK_NULL_HANDLE)),
         type(kVulkanObjectTypeUnknown) {}
     operator bool() const { return handle != 0; }
-};\n''')
-        out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
+};\n''',
+                '// NOLINTEND',
+            )
+        )
         self.write("".join(out))

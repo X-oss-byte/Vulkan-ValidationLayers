@@ -140,10 +140,10 @@ class BaseGenerator(OutputGenerator):
         # Will map alias to promoted name
         #   ex. ['VK_FILTER_CUBIC_IMG' : 'VK_FILTER_CUBIC_EXT']
         # When generating any code, there is no reason so use the old name
-        self.enumAliasMap = dict()
-        self.enumFieldAliasMap = dict()
-        self.bitmaskAliasMap = dict()
-        self.flagAliasMap = dict()
+        self.enumAliasMap = {}
+        self.enumFieldAliasMap = {}
+        self.bitmaskAliasMap = {}
+        self.flagAliasMap = {}
 
     def write(self, data):
         # Prevents having to check before writting
@@ -202,7 +202,7 @@ class BaseGenerator(OutputGenerator):
                     # may attempt to generate code for commands which are not supported in the
                     # target API variant, thus this check needs to happen even if any specific
                     # target API variant may not specifically need it
-                    if not commandName in self.vk.commands:
+                    if commandName not in self.vk.commands:
                         continue
 
                     command = self.vk.commands[commandName]
@@ -510,7 +510,7 @@ class BaseGenerator(OutputGenerator):
         typeElem = typeInfo.elem
         protect = self.currentExtension.protect if hasattr(self.currentExtension, 'protect') and self.currentExtension.protect is not None else None
         category = typeElem.get('category')
-        if (category == 'struct' or category == 'union'):
+        if category in ['struct', 'union']:
             extension = [self.currentExtension] if self.currentExtension is not None else []
             if alias is not None:
                 struct = self.vk.structs[alias]
@@ -603,7 +603,7 @@ class BaseGenerator(OutputGenerator):
         OutputGenerator.genSpirv(self, spirvinfo, spirvName, alias)
         spirvElem = spirvinfo.elem
         name = spirvElem.get('name')
-        extension = True if spirvElem.tag == 'spirvextension' else False
+        extension = spirvElem.tag == 'spirvextension'
         capability = not extension
 
         enables = []
@@ -679,9 +679,11 @@ class BaseGenerator(OutputGenerator):
             equivalent = SyncEquivalent(stages, accesses, False)
 
         flagName = syncElem.get('name')
-        flag = [x for x in self.vk.bitmasks['VkPipelineStageFlagBits2'].flags if x.name == flagName]
-        # This check is needed because not all API variants have VK_KHR_synchronization2
-        if flag:
+        if flag := [
+            x
+            for x in self.vk.bitmasks['VkPipelineStageFlagBits2'].flags
+            if x.name == flagName
+        ]:
             self.vk.syncStage.append(SyncStage(flag[0], support, equivalent))
 
     def genSyncAccess(self, sync):
@@ -706,9 +708,11 @@ class BaseGenerator(OutputGenerator):
             equivalent = SyncEquivalent(stages, accesses, False)
 
         flagName = syncElem.get('name')
-        flag = [x for x in self.vk.bitmasks['VkAccessFlagBits2'].flags if x.name == flagName]
-        # This check is needed because not all API variants have VK_KHR_synchronization2
-        if flag:
+        if flag := [
+            x
+            for x in self.vk.bitmasks['VkAccessFlagBits2'].flags
+            if x.name == flagName
+        ]:
             self.vk.syncAccess.append(SyncAccess(flag[0], support, equivalent))
 
     def genSyncPipeline(self, sync):

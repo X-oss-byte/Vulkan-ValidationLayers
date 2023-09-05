@@ -76,8 +76,8 @@ class ApiVersionOutputGenerator(BaseGenerator):
         BaseGenerator.__init__(self)
 
     def generate(self):
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -98,10 +98,9 @@ class ApiVersionOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 #include <vulkan/vulkan.h>
 #include <sstream>
@@ -112,11 +111,12 @@ class ApiVersionOutputGenerator(BaseGenerator):
 #define VK_VERSION_1_3_NAME "VK_VERSION_1_3"
 
 #define VVL_UNRECOGNIZED_API_VERSION 0xFFFFFFFF
-''')
-
-        out.append(APISpecific.genAPIVersionSource(self.targetApiName))
-
-        out.append('''
+''',
+        ]
+        out.extend(
+            (
+                APISpecific.genAPIVersionSource(self.targetApiName),
+                '''
 // Convert integer API version to a string
 static inline std::string StringAPIVersion(APIVersion version) {
     std::stringstream version_name;
@@ -127,7 +127,8 @@ static inline std::string StringAPIVersion(APIVersion version) {
                  << std::setw(8) << std::hex << version.Value() << ")";
     return version_name.str();
 }
-''')
-
-        out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
+''',
+                '// NOLINTEND',
+            )
+        )
         self.write(''.join(out))

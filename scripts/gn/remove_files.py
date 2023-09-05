@@ -24,7 +24,7 @@ import os
 import sys
 
 if len(sys.argv) < 3:
-    print("Usage: " + sys.argv[0] + " <stamp_file> <remove_patterns>")
+    print(f"Usage: {sys.argv[0]} <stamp_file> <remove_patterns>")
 
 stamp_file = sys.argv[1]
 

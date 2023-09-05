@@ -40,8 +40,8 @@ class SpirvToolCommitIdOutputGenerator(BaseGenerator):
         if len(commit_id) != 40:
             raise ValueError(f'commit ID for SPIRV_TOOLS_COMMIT_ID ({commit_id}) must be a SHA1 hash.')
 
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -66,7 +66,7 @@ class SpirvToolCommitIdOutputGenerator(BaseGenerator):
 
 #pragma once
 
-''')
-
-        out.append(f'#define SPIRV_TOOLS_COMMIT_ID "{commit_id}"')
+''',
+            f'#define SPIRV_TOOLS_COMMIT_ID "{commit_id}"',
+        ]
         self.write("".join(out))

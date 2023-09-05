@@ -277,8 +277,8 @@ class LayerChassisOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 
 #include <atomic>
@@ -328,8 +328,8 @@ extern vl_concurrent_unordered_map<uint64_t, uint64_t, 4, HashedUint64> unique_i
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(
     VkInstance                                  instance,
     const char*                                 funcName);\n
-''')
-
+'''
+        ]
         for command in [x for x in self.vk.commands.values() if x.name not in self.ignore_functions]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'{command.cPrototype.replace("VKAPI_CALL vk", "VKAPI_CALL ")}\n\n')
@@ -657,12 +657,18 @@ class ValidationObject {
             parameters = ' '.join(parameters.split()) # remove duplicate whitespace
 
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
-            out.append(f'        virtual bool PreCallValidate{command.name[2:]}({parameters}, const ErrorObject& error_obj) const {{ return false; }};\n')
-            out.append(f'        virtual void PreCallRecord{command.name[2:]}({parameters}) {{}};\n')
-            out.append(f'        virtual void PostCallRecord{command.name[2:]}({parameters}, const RecordObject& record_obj) {{}};\n')
+            out.extend(
+                (
+                    f'        virtual bool PreCallValidate{command.name[2:]}({parameters}, const ErrorObject& error_obj) const {{ return false; }};\n',
+                    f'        virtual void PreCallRecord{command.name[2:]}({parameters}) {{}};\n',
+                    f'        virtual void PostCallRecord{command.name[2:]}({parameters}, const RecordObject& record_obj) {{}};\n',
+                )
+            )
             out.extend(['#endif\n'] if command.protect else [])
 
-        out.append('''
+        out.extend(
+            (
+                '''
         virtual VkResult CoreLayerCreateValidationCacheEXT(VkDevice device, const VkValidationCacheCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkValidationCacheEXT* pValidationCache) { return VK_SUCCESS; };
         virtual void CoreLayerDestroyValidationCacheEXT(VkDevice device, VkValidationCacheEXT validationCache, const VkAllocationCallbacks* pAllocator) {};
         virtual VkResult CoreLayerMergeValidationCachesEXT(VkDevice device, VkValidationCacheEXT dstCache, uint32_t srcCacheCount, const VkValidationCacheEXT* pSrcCaches)  { return VK_SUCCESS; };
@@ -752,15 +758,16 @@ class ValidationObject {
         template <typename T>
         std::vector<T> ValidParamValues() const;
 };
-''')
-
-        out.append('extern small_unordered_map<void*, ValidationObject*, 2> layer_data_map;')
-        out.append('\n#include "valid_enum_values.h"')
+''',
+                'extern small_unordered_map<void*, ValidationObject*, 2> layer_data_map;',
+                '\n#include "valid_enum_values.h"',
+            )
+        )
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include <array>
 #include <cstring>
 #include <mutex>
@@ -782,36 +789,51 @@ vl_concurrent_unordered_map<uint64_t, uint64_t, 4, HashedUint64> unique_id_mappi
 bool wrap_handles = true;
 
 #define OBJECT_LAYER_DESCRIPTION "khronos_validation"\n
-''')
-
-        out.append('// Include layer validation object definitions\n')
+''',
+            '// Include layer validation object definitions\n',
+        ]
         # Add #include directives for the used layers
-        for layer in APISpecific.getValidationLayerList(self.targetApiName):
-            out.append(f'#include "{layer["include"]}"\n')
-        out.append('\n')
-
-        out.append('// This header file must be included after the above validation object class definitions\n')
-        out.append('#include "chassis_dispatch_helper.h"\n')
-        out.append('\n')
-
-        out.append('// Extension exposed by the validation layer\n')
-        out.append('static constexpr std::array kInstanceExtensions = {\n')
-        for ext in [x.upper() for x in APISpecific.getInstanceExtensionList(self.targetApiName)]:
-            out.append(f'    VkExtensionProperties{{{ext}_EXTENSION_NAME, {ext}_SPEC_VERSION}},\n')
-        out.append('};\n')
-        out.append('static constexpr std::array kDeviceExtensions = {\n')
-        for ext in [x.upper() for x in APISpecific.getDeviceExtensionList(self.targetApiName)]:
-            out.append(f'    VkExtensionProperties{{{ext}_EXTENSION_NAME, {ext}_SPEC_VERSION}},\n')
-        out.append('};\n')
-
-        out.append('''
+        out.extend(
+            f'#include "{layer["include"]}"\n'
+            for layer in APISpecific.getValidationLayerList(self.targetApiName)
+        )
+        out.extend(
+            (
+                '\n',
+                '// This header file must be included after the above validation object class definitions\n',
+                '#include "chassis_dispatch_helper.h"\n',
+                '\n',
+                '// Extension exposed by the validation layer\n',
+                'static constexpr std::array kInstanceExtensions = {\n',
+            )
+        )
+        out.extend(
+            f'    VkExtensionProperties{{{ext}_EXTENSION_NAME, {ext}_SPEC_VERSION}},\n'
+            for ext in [
+                x.upper()
+                for x in APISpecific.getInstanceExtensionList(self.targetApiName)
+            ]
+        )
+        out.extend(('};\n', 'static constexpr std::array kDeviceExtensions = {\n'))
+        out.extend(
+            f'    VkExtensionProperties{{{ext}_EXTENSION_NAME, {ext}_SPEC_VERSION}},\n'
+            for ext in [
+                x.upper()
+                for x in APISpecific.getDeviceExtensionList(self.targetApiName)
+            ]
+        )
+        out.extend(
+            (
+                '};\n',
+                '''
 // Layer registration code
 static std::vector<ValidationObject*> CreateObjectDispatch(const CHECK_ENABLED &enables, const CHECK_DISABLED &disables) {
     std::vector<ValidationObject*> object_dispatch{};
 
     // Add VOs to dispatch vector. Order here will be the validation dispatch order!
-''')
-
+''',
+            )
+        )
         for layer in APISpecific.getValidationLayerList(self.targetApiName):
             constructor = layer['class']
             constructor += '(nullptr)' if layer['class'] == 'ThreadSafety' else ''
@@ -819,30 +841,34 @@ static std::vector<ValidationObject*> CreateObjectDispatch(const CHECK_ENABLED &
     if ({layer["enabled"]}) {{
         object_dispatch.emplace_back(new {constructor});
     }}''')
-        out.append('\n')
-        out.append('    return object_dispatch;\n')
-        out.append('}\n')
-
-        out.append('''
+        out.extend(
+            (
+                '\n',
+                '    return object_dispatch;\n',
+                '}\n',
+                '''
 static void InitDeviceObjectDispatch(ValidationObject *instance_interceptor, ValidationObject *device_interceptor) {
     auto disables = instance_interceptor->disabled;
     auto enables = instance_interceptor->enabled;
 
     // Note that this DEFINES THE ORDER IN WHICH THE LAYER VALIDATION OBJECTS ARE CALLED
-''')
+''',
+            )
+        )
         for layer in APISpecific.getValidationLayerList(self.targetApiName):
             constructor = layer['class']
-            if layer['class'] == 'ThreadSafety':
+            if constructor == 'ThreadSafety':
                 constructor += ('(static_cast<ThreadSafety *>(\n' +
                     '            instance_interceptor->GetValidationObject(instance_interceptor->object_dispatch, LayerObjectTypeThreading)))')
             out.append(f'''
     if ({layer["enabled"]}) {{
         device_interceptor->object_dispatch.emplace_back(new {constructor});
     }}''')
-        out.append('\n')
-        out.append('}\n')
-
-        out.append('''
+        out.extend(
+            (
+                '\n',
+                '}\n',
+                '''
 // Global list of sType,size identifiers
 std::vector<std::pair<uint32_t, uint32_t>> custom_stype_info{};
 
@@ -864,9 +890,8 @@ typedef struct {
 } function_data;
 
 extern const vvl::unordered_map<std::string, function_data> name_to_funcptr_map;
-''')
-
-        out.append('''
+''',
+                '''
 // Manually written functions
 
 // Check enabled instance extensions against supported instance extension whitelist
@@ -1737,19 +1762,26 @@ VKAPI_ATTR VkResult VKAPI_CALL GetValidationCacheDataEXT(
     return result;
 
 }
-''')
-
+''',
+            )
+        )
         for command in [x for x in self.vk.commands.values() if x.name not in self.ignore_functions and x.name not in self.manual_functions]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             prototype = command.cPrototype.replace('VKAPI_CALL vk', 'VKAPI_CALL ').replace(');', ') {\n')
-            out.append(prototype)
-
+            out.extend(
+                (
+                    prototype,
+                    f'    auto layer_data = GetLayerDataPtr(get_dispatch_key({command.params[0].name}), layer_data_map);\n',
+                    '    bool skip = false;\n',
+                    f'    ErrorObject error_obj(vvl::Func::{command.name}, VulkanTypedHandle({command.params[0].name}, kVulkanObjectType{command.params[0].type[2:]}));\n',
+                )
+            )
+            # Generate pre-call validation source code
+            if not command.instance:
+                out.append(f'    for (const ValidationObject* intercept : layer_data->intercept_vectors[InterceptIdPreCallValidate{command.name[2:]}]) {{\n')
+            else:
+                out.append('    for (const ValidationObject* intercept : layer_data->object_dispatch) {\n')
             paramsList = ', '.join([param.name for param in command.params])
-
-            # Setup common to call wrappers. First parameter is always dispatchable
-            out.append(f'    auto layer_data = GetLayerDataPtr(get_dispatch_key({command.params[0].name}), layer_data_map);\n')
-
-            # Declare result variable, if any.
             return_map = {
                 'PFN_vkVoidFunction': 'return nullptr;',
                 'VkBool32': 'return VK_FALSE;',
@@ -1758,33 +1790,28 @@ VKAPI_ATTR VkResult VKAPI_CALL GetValidationCacheDataEXT(
                 'VkResult': 'return VK_ERROR_VALIDATION_FAILED_EXT;',
                 'void': 'return;',
                 'uint32_t': 'return 0;',
-                'uint64_t': 'return 0;'
+                'uint64_t': 'return 0;',
             }
-
-            # Set up skip and locking
-            out.append('    bool skip = false;\n')
-
-            out.append(f'    ErrorObject error_obj(vvl::Func::{command.name}, VulkanTypedHandle({command.params[0].name}, kVulkanObjectType{command.params[0].type[2:]}));\n')
-
-            # Generate pre-call validation source code
-            if not command.instance:
-                out.append(f'    for (const ValidationObject* intercept : layer_data->intercept_vectors[InterceptIdPreCallValidate{command.name[2:]}]) {{\n')
-            else:
-                out.append('    for (const ValidationObject* intercept : layer_data->object_dispatch) {\n')
-            out.append('        auto lock = intercept->ReadLock();\n')
-            out.append(f'        skip |= intercept->PreCallValidate{command.name[2:]}({paramsList}, error_obj);\n')
-            out.append(f'        if (skip) {return_map[command.returnType]}\n')
-            out.append('    }\n')
-
+            out.extend(
+                (
+                    '        auto lock = intercept->ReadLock();\n',
+                    f'        skip |= intercept->PreCallValidate{command.name[2:]}({paramsList}, error_obj);\n',
+                    f'        if (skip) {return_map[command.returnType]}\n',
+                    '    }\n',
+                )
+            )
             # Generate pre-call state recording source code
             if not command.instance:
                 out.append(f'    for (ValidationObject* intercept : layer_data->intercept_vectors[InterceptIdPreCallRecord{command.name[2:]}]) {{\n')
             else:
                 out.append('    for (ValidationObject* intercept : layer_data->object_dispatch) {\n')
-            out.append('        auto lock = intercept->WriteLock();\n')
-            out.append(f'        intercept->PreCallRecord{command.name[2:]}({paramsList});\n')
-            out.append('    }\n')
-
+            out.extend(
+                (
+                    '        auto lock = intercept->WriteLock();\n',
+                    f'        intercept->PreCallRecord{command.name[2:]}({paramsList});\n',
+                    '    }\n',
+                )
+            )
             # Insert pre-dispatch debug utils function call
             pre_dispatch_debug_utils_functions = {
                 'vkDebugMarkerSetObjectNameEXT' : 'layer_data->report_data->DebugReportSetMarkerObjectName(pNameInfo);',
@@ -1812,7 +1839,11 @@ VKAPI_ATTR VkResult VKAPI_CALL GetValidationCacheDataEXT(
                 out.append(f'    {post_dispatch_debug_utils_functions[command.name]}\n')
 
             # Generate post-call object processing source code
-            recordObj = ', result' if command.returnType == 'VkResult' or command.returnType == 'VkDeviceAddress' else ''
+            recordObj = (
+                ', result'
+                if command.returnType in ['VkResult', 'VkDeviceAddress']
+                else ''
+            )
             out.append(f'    RecordObject record_obj(vvl::Func::{command.name}{recordObj});\n')
             if not command.instance:
                 out.append(f'    for (ValidationObject* intercept : layer_data->intercept_vectors[InterceptIdPostCallRecord{command.name[2:]}]) {{\n')
@@ -1837,14 +1868,16 @@ VKAPI_ATTR VkResult VKAPI_CALL GetValidationCacheDataEXT(
                 out.append('        auto lock = intercept->WriteLock();\n')
             else:
                 out.append('        ValidationObject::BlockingOperationGuard lock(intercept);\n')
-            out.append(f'        intercept->PostCallRecord{command.name[2:]}({paramsList}, record_obj);\n')
-            out.append('    }\n')
+            out.extend(
+                (
+                    f'        intercept->PostCallRecord{command.name[2:]}({paramsList}, record_obj);\n',
+                    '    }\n',
+                )
+            )
             # Return result variable, if any.
             if command.returnType != 'void':
                 out.append('    return result;\n')
-            out.append('}\n')
-            out.append('\n')
-
+            out.extend(('}\n', '\n'))
             out.extend(['#endif\n'] if command.protect else [])
 
         out.append('''
@@ -1859,10 +1892,11 @@ const vvl::unordered_map<std::string, function_data> name_to_funcptr_map = {
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'    {{"{command.name}", {{{self.getApiFunctionType(command)}, (void*){command.name[2:]}}}}},\n')
             out.extend(['#endif\n'] if command.protect else [])
-        out.append('};\n')
-        out.append('} // namespace vulkan_layer_chassis\n')
-
-        out.append('''
+        out.extend(
+            (
+                '};\n',
+                '} // namespace vulkan_layer_chassis\n',
+                '''
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDeviceProcAddr(VkInstance instance, const char *funcName) {
     return vulkan_layer_chassis::GetPhysicalDeviceProcAddr(instance, funcName);
 }
@@ -1922,12 +1956,14 @@ VVL_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(V
 #endif
 
 }  // extern "C"
-''')
+''',
+            )
+        )
         self.write("".join(out))
 
     def generateHelper(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 
 // This source code creates dispatch vectors for each chassis api intercept,
@@ -1936,23 +1972,33 @@ VVL_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(V
 // class virtual function. Preventing non-overridden calls from reaching the default
 // functions saved about 5% in multithreaded applications.
 
-''')
-
-        out.append('typedef enum InterceptId{\n')
+''',
+            'typedef enum InterceptId{\n',
+        ]
         for command in [x for x in self.vk.commands.values() if not x.instance and x.name not in self.manual_functions]:
-            out.append(f'    InterceptIdPreCallValidate{command.name[2:]},\n')
-            out.append(f'    InterceptIdPreCallRecord{command.name[2:]},\n')
-            out.append(f'    InterceptIdPostCallRecord{command.name[2:]},\n')
-        out.append('    InterceptIdCount,\n')
-        out.append('} InterceptId;\n')
-
-        out.append(APISpecific.genInitObjectDispatchVectorSource(self.targetApiName))
-
+            out.extend(
+                (
+                    f'    InterceptIdPreCallValidate{command.name[2:]},\n',
+                    f'    InterceptIdPreCallRecord{command.name[2:]},\n',
+                    f'    InterceptIdPostCallRecord{command.name[2:]},\n',
+                )
+            )
+        out.extend(
+            (
+                '    InterceptIdCount,\n',
+                '} InterceptId;\n',
+                APISpecific.genInitObjectDispatchVectorSource(self.targetApiName),
+            )
+        )
         for command in [x for x in self.vk.commands.values() if not x.instance and x.name not in self.manual_functions]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
-            out.append(f'    BUILD_DISPATCH_VECTOR(PreCallValidate{command.name[2:]});\n')
-            out.append(f'    BUILD_DISPATCH_VECTOR(PreCallRecord{command.name[2:]});\n')
-            out.append(f'    BUILD_DISPATCH_VECTOR(PostCallRecord{command.name[2:]});\n')
+            out.extend(
+                (
+                    f'    BUILD_DISPATCH_VECTOR(PreCallValidate{command.name[2:]});\n',
+                    f'    BUILD_DISPATCH_VECTOR(PreCallRecord{command.name[2:]});\n',
+                    f'    BUILD_DISPATCH_VECTOR(PostCallRecord{command.name[2:]});\n',
+                )
+            )
             out.extend(['#endif\n'] if command.protect else [])
         out.append('}\n')
         self.write("".join(out))

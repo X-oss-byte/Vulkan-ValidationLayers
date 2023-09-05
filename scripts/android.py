@@ -37,7 +37,7 @@ def get_android_manifest() -> str:
 
 # Generate the APK from the CMake binaries
 def generate_apk(SDK_ROOT : str, CMAKE_INSTALL_DIR : str) -> str:
-    apk_dir = common_ci.RepoRelative(f'build-android/bin')
+    apk_dir = common_ci.RepoRelative('build-android/bin')
 
     # Delete APK directory since it could contain files from old runs
     if os.path.isdir(apk_dir):
@@ -131,7 +131,7 @@ def main():
 
         print(f"Using {tool} : {path}")
 
-    cmake_install_dir = common_ci.RepoRelative(f'build-android/libs')
+    cmake_install_dir = common_ci.RepoRelative('build-android/libs')
 
     # Delete install directory since it could contain files from old runs
     if os.path.isdir(cmake_install_dir):

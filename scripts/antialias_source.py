@@ -59,10 +59,10 @@ def UpdateFile(alias_map, filename):
     for name, alias in alias_map.items():
         if name in file_contents:
             # Use regex with word break to match whole tokens only
-            file_contents, n = re.subn(r'\b{}\b'.format(name), alias, file_contents)
+            file_contents, n = re.subn(f'\b{name}\b', alias, file_contents)
             sub_count += n
     if sub_count > 0:
-        print('{} {}'.format(filename, sub_count))
+        print(f'{filename} {sub_count}')
         with open(filename, 'w') as f:
             f.write(file_contents)
 

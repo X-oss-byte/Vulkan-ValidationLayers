@@ -21,7 +21,7 @@ from generators.base_generator import BaseGenerator
 
 # If there is another success code other than VK_SUCCESS
 def hasNonVkSuccess(successCodes: list[str]) -> bool:
-    if successCodes is None or len(successCodes) == 0:
+    if successCodes is None or not successCodes:
         return False
     return len(successCodes) > 1 or 'VK_SUCCESS' not in successCodes
 
@@ -68,7 +68,7 @@ class BestPracticesOutputGenerator(BaseGenerator):
             'vkQueueSubmit',
         ]
 
-        self.extension_info = dict()
+        self.extension_info = {}
 
     def generate(self):
         self.write(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
@@ -113,13 +113,14 @@ class BestPracticesOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <vulkan/vulkan_core.h>
 #include "containers/custom_containers.h"
 #include "error_message/record_object.h"
-''')
+'''
+        ]
         # List all Function declarations
         for command in [x for x in self.vk.commands.values() if x.name not in self.no_autogen_list]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
@@ -149,21 +150,27 @@ class BestPracticesOutputGenerator(BaseGenerator):
             else:
                 continue
             out.append(f'    {{"{extension.name}", {{{reason}, "{target}"}}}},\n')
-        out.append('};\n')
-
-        out.append('const vvl::unordered_map<std::string, std::string> special_use_extensions = {\n')
-        for extension in self.vk.extensions.values():
-            if extension.specialUse is not None:
-                out.append(f'    {{"{extension.name}", "{", ".join(extension.specialUse)}"}},\n')
+        out.extend(
+            (
+                '};\n',
+                'const vvl::unordered_map<std::string, std::string> special_use_extensions = {\n',
+            )
+        )
+        out.extend(
+            f'    {{"{extension.name}", "{", ".join(extension.specialUse)}"}},\n'
+            for extension in self.vk.extensions.values()
+            if extension.specialUse is not None
+        )
         out.append('};\n')
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "chassis.h"
 #include "best_practices/best_practices_validation.h"
-''')
+'''
+        ]
         for command in [x for x in self.vk.commands.values() if x.name not in self.no_autogen_list]:
             paramList = [param.name for param in command.params]
             paramList.append('record_obj')
@@ -178,24 +185,33 @@ class BestPracticesOutputGenerator(BaseGenerator):
             prototype = prototype.replace(');', ',\n    const RecordObject&                         record_obj) {\n')
             if command.name in self.extra_parameter_list:
                 prototype = prototype.replace(')', ',\n    void*                                       state_data)')
-            out.append(prototype)
-
-            out.append(f'    ValidationStateTracker::PostCallRecord{command.name[2:]}({params});\n')
+            out.extend(
+                (
+                    prototype,
+                    f'    ValidationStateTracker::PostCallRecord{command.name[2:]}({params});\n',
+                )
+            )
             if command.name in self.manual_postcallrecord_list:
                 out.append(f'    ManualPostCallRecord{command.name[2:]}({params});\n')
 
             if hasNonVkSuccess(command.successCodes):
                 out.append('    if (record_obj.result > VK_SUCCESS) {\n')
                 results = [ x for x in command.successCodes if x != 'VK_SUCCESS' ]
-                out.append(f'        LogPositiveSuccessCode(record_obj); // {", ".join(results)}\n')
-                out.append('        return;\n')
-                out.append('    }\n')
-
+                out.extend(
+                    (
+                        f'        LogPositiveSuccessCode(record_obj); // {", ".join(results)}\n',
+                        '        return;\n',
+                        '    }\n',
+                    )
+                )
             if command.errorCodes is not None:
-                out.append('    if (record_obj.result < VK_SUCCESS) {\n')
-                out.append(f'        LogErrorCode(record_obj); // {", ".join(command.errorCodes)}\n')
-                out.append('    }\n')
-
+                out.extend(
+                    (
+                        '    if (record_obj.result < VK_SUCCESS) {\n',
+                        f'        LogErrorCode(record_obj); // {", ".join(command.errorCodes)}\n',
+                        '    }\n',
+                    )
+                )
             out.append('}\n')
             out.extend([f'#endif // {command.protect}\n'] if command.protect else [])
         self.write(''.join(out))

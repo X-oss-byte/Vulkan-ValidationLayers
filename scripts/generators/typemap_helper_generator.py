@@ -26,8 +26,8 @@ class TypemapHelperOutputGenerator(BaseGenerator):
         BaseGenerator.__init__(self)
 
     def generate(self):
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -48,9 +48,9 @@ class TypemapHelperOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 #include <vulkan/vulkan.h>
 
@@ -59,8 +59,8 @@ class TypemapHelperOutputGenerator(BaseGenerator):
 // types and sTypes
 
 template <VkStructureType id> struct LvlSTypeMap {};
-template <typename T> struct LvlTypeMap {};\n''')
-
+template <typename T> struct LvlTypeMap {};\n''',
+        ]
         for struct in [x for x in self.vk.structs.values() if x.sType]:
             out.extend([f'#ifdef {struct.protect}'] if struct.protect else [])
             out.append(f'''
@@ -74,7 +74,9 @@ template <> struct LvlSTypeMap<{struct.sType}> {{
 }};\n''')
             out.extend([f'#endif // {struct.protect}\n'] if struct.protect else [])
 
-        out.append('''
+        out.extend(
+            (
+                '''
 // Find an entry of the given type in the const pNext chain
 template <typename T> const T *LvlFindInChain(const void *next) {
     const VkBaseOutStructure *current = reinterpret_cast<const VkBaseOutStructure *>(next);
@@ -119,7 +121,8 @@ T LvlInitStruct(void *p_next = nullptr) {
     out.sType = LvlTypeMap<T>::kSType;
     out.pNext = p_next;
     return out;
-}\n''')
-
-        out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
+}\n''',
+                '// NOLINTEND',
+            )
+        )
         self.write("".join(out))
