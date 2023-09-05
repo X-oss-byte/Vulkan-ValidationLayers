@@ -28,20 +28,17 @@ def buildListVUID(valid_usage_file: str) -> set:
                 if key == "vuid":
                     yield value
                 elif isinstance(value, dict):
-                    for vuid in ExtractVUIDs(value):
-                        yield vuid
+                    yield from ExtractVUIDs(value)
                 elif isinstance (value, list):
                     for listValue in value:
-                        for vuid in ExtractVUIDs(listValue):
-                            yield vuid
+                        yield from ExtractVUIDs(listValue)
 
     valid_vuids = set()
     if not os.path.isfile(valid_usage_file):
         print(f'Error: Could not find, or error loading {valid_usage_file}')
         sys.exit(1)
-    json_file = open(valid_usage_file, 'r', encoding='utf-8')
-    vuid_dict = json.load(json_file)
-    json_file.close()
+    with open(valid_usage_file, 'r', encoding='utf-8') as json_file:
+        vuid_dict = json.load(json_file)
     if len(vuid_dict) == 0:
         print(f'Error: Failed to load {valid_usage_file}')
         sys.exit(1)
@@ -78,8 +75,5 @@ def decIndent(indent: str) -> str:
 
 # Add the indent to each line of the input
 def addIndent(indent: str, input: str) -> str:
-    out = ''
     lines = input.split('\n')
-    for line in lines:
-        out += f'{indent}{line}\n'
-    return out
+    return ''.join(f'{indent}{line}\n' for line in lines)

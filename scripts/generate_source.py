@@ -275,7 +275,7 @@ def RunGenerators(api: str, registry: str, grammar: str, directory: str, targetF
         return 1
 
     # Filter if --target is passed in
-    targets = [x for x in generators.keys() if not targetFilter or x in targetFilter]
+    targets = [x for x in generators if not targetFilter or x in targetFilter]
 
     for index, target in enumerate(targets, start=1):
         print(f'[{index}|{len(targets)}] Generating {target}')
@@ -319,9 +319,6 @@ def repo_relative(path):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', path))
 
 def main(argv):
-    # files to exclude from --verify check
-    verify_exclude = ['.clang-format']
-
     parser = argparse.ArgumentParser(description='Generate source code for this repository')
     parser.add_argument('--api',
                         default='vulkan',
@@ -341,8 +338,7 @@ def main(argv):
 
     # Update the api_version in the respective json files
     if args.generated_version:
-        json_files = []
-        json_files.append(repo_relative('layers/VkLayer_khronos_validation.json.in'))
+        json_files = [repo_relative('layers/VkLayer_khronos_validation.json.in')]
         json_files.append(repo_relative('tests/layers/VkLayer_device_profile_api.json.in'))
         for json_file in json_files:
             with open(json_file) as f:
@@ -378,7 +374,7 @@ def main(argv):
         print(' '.join(cmd))
         subprocess.check_call([sys.executable] + cmd, cwd=gen_dir)
     except Exception as e:
-        print('ERROR:', str(e))
+        print('ERROR:', e)
         return 1
 
     # optional post-generation steps
@@ -386,6 +382,9 @@ def main(argv):
         # compare contents of temp dir and repo
         temp_files = set(os.listdir(temp_dir))
         repo_files = set(os.listdir(repo_dir))
+        # files to exclude from --verify check
+        verify_exclude = ['.clang-format']
+
         for filename in sorted((temp_files | repo_files) - set(verify_exclude)):
             temp_filename = os.path.join(temp_dir, filename)
             repo_filename = os.path.join(repo_dir, filename)
@@ -402,11 +401,17 @@ def main(argv):
             elif not filecmp.cmp(temp_filename, repo_filename, shallow=False):
                 print('ERROR: Repo files do not match generator output for', filename)
                 # print line diff on file mismatch
-                with open(temp_filename) as temp_file, open(repo_filename) as repo_file:
-                    print(''.join(difflib.unified_diff(temp_file.readlines(),
-                                                       repo_file.readlines(),
-                                                       fromfile='temp/' + filename,
-                                                       tofile=  'repo/' + filename)))
+                with (open(temp_filename) as temp_file, open(repo_filename) as repo_file):
+                    print(
+                        ''.join(
+                            difflib.unified_diff(
+                                temp_file.readlines(),
+                                repo_file.readlines(),
+                                fromfile=f'temp/{filename}',
+                                tofile=f'repo/{filename}',
+                            )
+                        )
+                    )
                 return 4
 
         # return code for test scripts

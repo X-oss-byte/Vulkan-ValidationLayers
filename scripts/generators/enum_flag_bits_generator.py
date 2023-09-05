@@ -63,8 +63,8 @@ class EnumFlagBitsOutputGenerator(BaseGenerator):
                 elif flagName in self.vk.bitmasks and self.vk.bitmasks[flagName] not in bitmasks:
                     bitmasks.append(self.vk.bitmasks[flagName])
 
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -84,36 +84,44 @@ class EnumFlagBitsOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 
 #include <array>
-#include "vulkan/vulkan.h"\n''')
-
+#include "vulkan/vulkan.h"\n''',
+        ]
         out.append(f'const uint32_t GeneratedVulkanHeaderVersion = {self.vk.headerVersion};\n')
         for bitmask in bitmasks:
-            if bitmask.flagName == 'VkGeometryInstanceFlagsKHR':
+            if (
+                bitmask.flagName == 'VkGeometryInstanceFlagsKHR'
+                or len(bitmask.flags) == 0
+            ):
                 continue # only called in VkAccelerationStructureInstanceKHR which is never called anywhere explicitly
-            elif len(bitmask.flags) == 0:
-                continue # some bitmask are empty and used for reserve in the future
-
             out.extend([f'#ifdef {bitmask.protect}\n'] if bitmask.protect else [])
-            out.append(f'const {bitmask.flagName} All{bitmask.name} = {"|".join([flag.name for flag in bitmask.flags])}')
-            out.append(';\n')
+            out.extend(
+                (
+                    f'const {bitmask.flagName} All{bitmask.name} = {"|".join([flag.name for flag in bitmask.flags])}',
+                    ';\n',
+                )
+            )
             out.extend([f'#endif //{bitmask.protect}\n'] if bitmask.protect else [])
 
         out.extend(APISpecific.genManualConstants(self.targetApiName))
 
-        out.append('\n')
-        out.append('// mask of all the VK_PIPELINE_STAGE_*_SHADER_BIT stages\n')
-        out.append(f'const VkPipelineStageFlagBits2 allVkPipelineShaderStageBits2 = {"|".join([flag.name for flag in self.vk.bitmasks["VkPipelineStageFlagBits2"].flags if "_SHADER_BIT" in flag.name])};\n')
-
-        out.append('\n')
+        out.extend(
+            (
+                '\n',
+                '// mask of all the VK_PIPELINE_STAGE_*_SHADER_BIT stages\n',
+                f'const VkPipelineStageFlagBits2 allVkPipelineShaderStageBits2 = {"|".join([flag.name for flag in self.vk.bitmasks["VkPipelineStageFlagBits2"].flags if "_SHADER_BIT" in flag.name])};\n',
+                '\n',
+            )
+        )
         flagBitsAsArray = ['VkQueueFlagBits', 'VkShaderStageFlagBits']
-        for bitmask in [self.vk.bitmasks[x] for x in flagBitsAsArray]:
-            out.append(f'[[maybe_unused]] constexpr std::array All{bitmask.flagName} = {{{",".join([flag.name for flag in bitmask.flags])}}};\n')
-
+        out.extend(
+            f'[[maybe_unused]] constexpr std::array All{bitmask.flagName} = {{{",".join([flag.name for flag in bitmask.flags])}}};\n'
+            for bitmask in [self.vk.bitmasks[x] for x in flagBitsAsArray]
+        )
         out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
         self.write("".join(out))

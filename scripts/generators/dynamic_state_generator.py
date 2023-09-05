@@ -58,64 +58,80 @@ class DynamicStateOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <bitset>
 
 // Reorders VkDynamicState so it can be a bitset
 typedef enum CBDynamicState {
-''')
-        for index, field in enumerate(self.vk.enums['VkDynamicState'].fields, start=1):
-            # VK_DYNAMIC_STATE_LINE_WIDTH -> STATE_LINE_WIDTH
-            out.append(f'    CB_DYNAMIC_{field.name[11:]} = {index},\n')
-
-        out.append(f'    CB_DYNAMIC_STATE_STATUS_NUM = {len(self.vk.enums["VkDynamicState"].fields) + 1}')
-        out.append('''
+'''
+        ]
+        out.extend(
+            f'    CB_DYNAMIC_{field.name[11:]} = {index},\n'
+            for index, field in enumerate(
+                self.vk.enums['VkDynamicState'].fields, start=1
+            )
+        )
+        out.extend(
+            (
+                f'    CB_DYNAMIC_STATE_STATUS_NUM = {len(self.vk.enums["VkDynamicState"].fields) + 1}',
+                '''
 } CBDynamicState;
 
 using CBDynamicFlags = std::bitset<CB_DYNAMIC_STATE_STATUS_NUM>;
 CBDynamicState ConvertToCBDynamicState(VkDynamicState dynamic_state);
 const char* DynamicStateToString(CBDynamicState dynamic_state);
 std::string DynamicStatesToString(CBDynamicFlags const &dynamic_states);
-''')
+''',
+            )
+        )
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "core_checks/core_validation.h"
 
 static VkDynamicState ConvertToDynamicState(CBDynamicState dynamic_state) {
     switch (dynamic_state) {
-''')
+'''
+        ]
         for field in self.vk.enums['VkDynamicState'].fields:
-            # VK_DYNAMIC_STATE_LINE_WIDTH -> STATE_LINE_WIDTH
-            out.append(f'        case CB_DYNAMIC_{field.name[11:]}:\n')
-            out.append(f'            return {field.name};\n')
-
-        out.append('''        default:
+            out.extend(
+                (
+                    f'        case CB_DYNAMIC_{field.name[11:]}:\n',
+                    f'            return {field.name};\n',
+                )
+            )
+        out.extend(
+            (
+                '''        default:
             return VK_DYNAMIC_STATE_MAX_ENUM;
     }
 }
-''')
-
-        out.append('''
+''',
+                '''
 CBDynamicState ConvertToCBDynamicState(VkDynamicState dynamic_state) {
     switch (dynamic_state) {
-''')
-
+''',
+            )
+        )
         for field in self.vk.enums['VkDynamicState'].fields:
-            # VK_DYNAMIC_STATE_LINE_WIDTH -> STATE_LINE_WIDTH
-            out.append(f'        case {field.name}:\n')
-            out.append(f'            return CB_DYNAMIC_{field.name[11:]};\n')
-        out.append('''        default:
+            out.extend(
+                (
+                    f'        case {field.name}:\n',
+                    f'            return CB_DYNAMIC_{field.name[11:]};\n',
+                )
+            )
+        out.extend(
+            (
+                '''        default:
             return CB_DYNAMIC_STATE_STATUS_NUM;
     }
 }
-''')
-
-        out.append('''
+''',
+                '''
 const char* DynamicStateToString(CBDynamicState dynamic_state) {
     return string_VkDynamicState(ConvertToDynamicState(dynamic_state));
 }
@@ -133,5 +149,7 @@ std::string DynamicStatesToString(CBDynamicFlags const &dynamic_states) {
     if (ret.empty()) ret.append(string_VkDynamicState(ConvertToDynamicState(CB_DYNAMIC_STATE_STATUS_NUM)));
     return ret;
 }
-''')
+''',
+            )
+        )
         self.write("".join(out))

@@ -22,7 +22,7 @@ from generators.base_generator import BaseGenerator
 def getClassName(className: str) -> str:
     name = className.replace('-', '').replace(' ', '_').upper()
     if name[0].isdigit():
-        name = '_' + name
+        name = f'_{name}'
     return name
 
 def formatHasDepth(format: Format) -> bool:
@@ -45,9 +45,9 @@ class FormatUtilsOutputGenerator(BaseGenerator):
         self.maxPlaneCount = 1
         self.maxComponentCount = 1
 
-        self.compressedFormats = dict()
-        self.depthFormats = dict()
-        self.stencilFormats = dict()
+        self.compressedFormats = {}
+        self.depthFormats = {}
+        self.stencilFormats = {}
         self.numericFormats = set()
 
         # Lots of switch statements share same ending
@@ -86,8 +86,12 @@ class FormatUtilsOutputGenerator(BaseGenerator):
 ****************************************************************************/\n''')
         self.write('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
 
-        self.maxPlaneCount = max([len(format.planes) for format in self.vk.formats.values()])
-        self.maxComponentCount = max([len(format.components) for format in self.vk.formats.values()])
+        self.maxPlaneCount = max(
+            len(format.planes) for format in self.vk.formats.values()
+        )
+        self.maxComponentCount = max(
+            len(format.components) for format in self.vk.formats.values()
+        )
 
         for format in [x for x in self.vk.formats.values() if x.compressed]:
             compressed = format.compressed.replace(' ', '_')
@@ -114,41 +118,52 @@ class FormatUtilsOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <vulkan/vk_layer.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-''')
-        out.append(f'static constexpr uint32_t FORMAT_MAX_PLANES = {self.maxPlaneCount};\n')
-        out.append(f'static constexpr uint32_t FORMAT_MAX_COMPONENTS = {self.maxComponentCount};\n')
-        out.append('\n')
-        out.append('enum class FORMAT_NUMERICAL_TYPE {\n')
-        out.append('    NONE = 0,\n')
+''',
+            f'static constexpr uint32_t FORMAT_MAX_PLANES = {self.maxPlaneCount};\n',
+            f'static constexpr uint32_t FORMAT_MAX_COMPONENTS = {self.maxComponentCount};\n',
+            '\n',
+            'enum class FORMAT_NUMERICAL_TYPE {\n',
+            '    NONE = 0,\n',
+        ]
         for index, numericFormat in enumerate(sorted(self.numericFormats), start=1):
-            out.append(f'    {numericFormat}')
-            out.append(',\n' if (index != len(self.numericFormats)) else '\n')
-        out.append('};\n')
-        out.append('\n')
-        out.append('enum class FORMAT_COMPATIBILITY_CLASS {\n')
-        out.append('    NONE = 0,\n')
-
-        classNames = set()
-        for f in self.vk.formats.values():
-            classNames.add(getClassName(f.className))
-
+            out.extend(
+                (
+                    f'    {numericFormat}',
+                    ',\n' if (index != len(self.numericFormats)) else '\n',
+                )
+            )
+        out.extend(
+            (
+                '};\n',
+                '\n',
+                'enum class FORMAT_COMPATIBILITY_CLASS {\n',
+                '    NONE = 0,\n',
+            )
+        )
+        classNames = {getClassName(f.className) for f in self.vk.formats.values()}
         for count, className in enumerate(sorted(classNames), start=1):
-            out.append(f'    {className}')
-            out.append(',\n' if (count != len(classNames)) else '\n')
-        out.append('};\n')
-
-        out.append('// Numeric formats with more then one numeric type (D16_UNORM_S8_UINT) will return false\n')
-        for numericFormat in sorted(self.numericFormats):
-            out.append(f'bool FormatIs{numericFormat}(VkFormat format);\n')
-        out.append('''
+            out.extend((f'    {className}', ',\n' if (count != len(classNames)) else '\n'))
+        out.extend(
+            (
+                '};\n',
+                '// Numeric formats with more then one numeric type (D16_UNORM_S8_UINT) will return false\n',
+            )
+        )
+        out.extend(
+            f'bool FormatIs{numericFormat}(VkFormat format);\n'
+            for numericFormat in sorted(self.numericFormats)
+        )
+        out.extend(
+            (
+                '''
 // Types from "Interpretation of Numeric Format" table (OpTypeFloat vs OpTypeInt)
 static inline bool FormatIsSampledInt(VkFormat format) { return (FormatIsSINT(format) || FormatIsUINT(format)); }
 static inline bool FormatIsSampledFloat(VkFormat format) {
@@ -157,14 +172,18 @@ static inline bool FormatIsSampledFloat(VkFormat format) {
             FormatIsUFLOAT(format)  || FormatIsSFLOAT(format)  ||
             FormatIsSRGB(format));
 }
-''')
-
-        out.append('// Compressed\n')
-        for key in sorted(self.compressedFormats.keys()):
-            out.append(f'bool FormatIsCompressed_{key}(VkFormat format);\n')
-        out.append('bool FormatIsCompressed(VkFormat format);\n')
-
-        out.append('''
+''',
+                '// Compressed\n',
+            )
+        )
+        out.extend(
+            f'bool FormatIsCompressed_{key}(VkFormat format);\n'
+            for key in sorted(self.compressedFormats.keys())
+        )
+        out.extend(
+            (
+                'bool FormatIsCompressed(VkFormat format);\n',
+                '''
 // Depth/Stencil
 bool FormatIsDepthOrStencil(VkFormat format);
 bool FormatIsDepthAndStencil(VkFormat format);
@@ -187,26 +206,39 @@ bool FormatIsYChromaSubsampled(VkFormat format);
 
 // Multiplane
 // Single-plane "_422" formats are treated as 2x1 compressed (for copies)
-''')
-        out.append('\nconstexpr bool FormatIsSinglePlane_422(VkFormat format) {\n')
-        out.append('    bool found = false;\n')
-        out.append('    switch (format) {\n')
-        for name in [x.name for x in self.vk.formats.values() if x.chroma == '422' and not x.planes]:
-            out.append(f'        case {name}:\n')
-        out.append(self.commonBoolSwitch)
-
-        out.append('\n// Returns number of planes in format (which is 1 by default)\n')
-        out.append('constexpr uint32_t FormatPlaneCount(VkFormat format) {\n')
-        out.append('    switch (format) {\n')
+''',
+                '\nconstexpr bool FormatIsSinglePlane_422(VkFormat format) {\n',
+                '    bool found = false;\n',
+                '    switch (format) {\n',
+            )
+        )
+        out.extend(
+            f'        case {name}:\n'
+            for name in [
+                x.name
+                for x in self.vk.formats.values()
+                if x.chroma == '422' and not x.planes
+            ]
+        )
+        out.extend(
+            (
+                self.commonBoolSwitch,
+                '\n// Returns number of planes in format (which is 1 by default)\n',
+                'constexpr uint32_t FormatPlaneCount(VkFormat format) {\n',
+                '    switch (format) {\n',
+            )
+        )
         # Use range to sort formats together
         for i in range(2, self.maxPlaneCount + 1):
             out.extend([f'        case {f.name}:\n' for f in self.vk.formats.values() if len(f.planes) == i])
             out.append(f'            return {i};\n')
-        out.append('        default:\n')
-        out.append('            return 1;\n')
-        out.append('     }\n')
-        out.append('}\n')
-        out.append('''
+        out.extend(
+            (
+                '        default:\n',
+                '            return 1;\n',
+                '     }\n',
+                '}\n',
+                '''
 constexpr bool FormatIsMultiplane(VkFormat format) { return ((FormatPlaneCount(format)) > 1u); }
 VkFormat FindMultiplaneCompatibleFormat(VkFormat mp_fmt, VkImageAspectFlags plane_aspect);
 VkExtent2D FindMultiplaneExtentDivisors(VkFormat mp_fmt, VkImageAspectFlags plane_aspect);
@@ -218,19 +250,20 @@ FORMAT_COMPATIBILITY_CLASS FormatCompatibilityClass(VkFormat format);
 bool FormatElementIsTexel(VkFormat format);
 uint32_t FormatElementSize(VkFormat format, VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 double FormatTexelSize(VkFormat format, VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
-''')
-
-             # Could loop the components, but faster to just list these
-        out.append('''
+''',
+                '''
 // True if Format contains a 64-bit component
 constexpr bool FormatIs64bit(VkFormat format) {
     bool found = false;
     switch (format) {
-''')
+''',
+            )
+        )
         out.extend([f'        case {f.name}:\n' for f in self.vk.formats.values() if formatHas64Bit(f)])
-        out.append(self.commonBoolSwitch)
-
-        out.append('''
+        out.extend(
+            (
+                self.commonBoolSwitch,
+                '''
 // Components
 bool FormatHasComponentSize(VkFormat format, uint32_t size);
 bool FormatHasRed(VkFormat format);
@@ -254,8 +287,9 @@ static inline bool FormatIsColor(VkFormat format) {
 #ifdef __cplusplus
 }
 #endif
-''')
-
+''',
+            )
+        )
         self.write("".join(out))
 
     def generateSource(self):

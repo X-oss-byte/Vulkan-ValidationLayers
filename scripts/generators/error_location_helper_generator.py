@@ -67,8 +67,8 @@ class ErrorLocationHelperOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <string_view>
 #include <vulkan/vulkan.h>
@@ -76,53 +76,56 @@ class ErrorLocationHelperOutputGenerator(BaseGenerator):
 namespace vvl {
 enum class Func {
     Empty = 0,
-''')
+'''
+        ]
         # Want alpha-sort for ease of look at list while debugging
-        for index, command in enumerate(sorted(self.vk.commands.values()), start=1):
-            out.append(f'    {command.name} = {index},\n')
-        out.append('};\n')
-
-        out.append('\n')
-        out.append('enum class Struct {\n')
-        out.append('    Empty = 0,\n')
+        out.extend(
+            f'    {command.name} = {index},\n'
+            for index, command in enumerate(
+                sorted(self.vk.commands.values()), start=1
+            )
+        )
+        out.extend(('};\n', '\n', 'enum class Struct {\n', '    Empty = 0,\n'))
         # Want alpha-sort for ease of look at list while debugging
-        for struct in sorted(self.vk.structs.values()):
-            out.append(f'    {struct.name},\n')
-        out.append('};\n')
-
-        out.append('\n')
-        out.append('enum class Field {\n')
-        out.append('    Empty = 0,\n')
+        out.extend(
+            f'    {struct.name},\n' for struct in sorted(self.vk.structs.values())
+        )
+        out.extend(('};\n', '\n', 'enum class Field {\n', '    Empty = 0,\n'))
         # Already alpha-sorted
-        for field in self.fields:
-            out.append(f'    {field},\n')
-        out.append('};\n')
-
-        out.append('''
+        out.extend(f'    {field},\n' for field in self.fields)
+        out.extend(
+            (
+                '};\n',
+                '''
 const char* String(Func func);
 const char* String(Struct structure);
 const char* String(Field field);
 }  // namespace vvl
-''')
+''',
+            )
+        )
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "error_location_helper.h"
 #include "containers/custom_containers.h"
 #include <assert.h>
 
 namespace vvl {
-''')
-        out.append('''
+''',
+            '''
 const char* String(Func func) {
     static const std::string_view table[] = {
     {"INVALID_EMPTY", 15}, // Func::Empty
-''')
+''',
+        ]
         # Need to be alpha-sort also to match array indexing
-        for command in sorted(self.vk.commands.values()):
-            out.append(f'    {{"{command.name}", {len(command.name) + 1}}},\n')
+        out.extend(
+            f'    {{"{command.name}", {len(command.name) + 1}}},\n'
+            for command in sorted(self.vk.commands.values())
+        )
         out.append('''    };
     return table[(int)func].data();
 }
@@ -132,8 +135,10 @@ const char* String(Struct structure) {
     {"INVALID_EMPTY", 15}, // Struct::Empty
 ''')
         # Need to be alpha-sort also to match array indexing
-        for struct in sorted(self.vk.structs.values()):
-            out.append(f'    {{"{struct.name}", {len(struct.name) + 1}}},\n')
+        out.extend(
+            f'    {{"{struct.name}", {len(struct.name) + 1}}},\n'
+            for struct in sorted(self.vk.structs.values())
+        )
         out.append('''    };
     return table[(int)structure].data();
 }
@@ -142,8 +147,7 @@ const char* String(Field field) {
     static const std::string_view table[] = {
     {"INVALID_EMPTY", 15}, // Field::Empty
 ''')
-        for field in self.fields:
-            out.append(f'    {{"{field}", {len(field) + 1}}},\n')
+        out.extend(f'    {{"{field}", {len(field) + 1}}},\n' for field in self.fields)
         out.append('''    };
     return table[(int)field].data();
 }

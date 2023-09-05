@@ -55,10 +55,7 @@ except:
     commit_id = 'invalid-hash'
     commit_date = 'invalid-date'
 
-hfile = open(output_file, 'w')
-
-hfile.write('#define ANGLE_COMMIT_HASH "%s"\n'    % commit_id)
-hfile.write('#define ANGLE_COMMIT_HASH_SIZE %d\n' % commit_id_size)
-hfile.write('#define ANGLE_COMMIT_DATE "%s"\n'    % commit_date)
-
-hfile.close()
+with open(output_file, 'w') as hfile:
+    hfile.write('#define ANGLE_COMMIT_HASH "%s"\n'    % commit_id)
+    hfile.write('#define ANGLE_COMMIT_HASH_SIZE %d\n' % commit_id_size)
+    hfile.write('#define ANGLE_COMMIT_DATE "%s"\n'    % commit_date)

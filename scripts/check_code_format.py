@@ -69,13 +69,10 @@ def VerifyClangFormatSource(commit, target_files):
 # Check copyright dates for modified files
 def VerifyCopyrights(commit, target_files):
     retval = 0
-    is_lunarg_author = False
     authors = check_output(['git', 'log', '-n' , '1', '--format=%ae', commit])
-    for author in authors.split(b'\n'):
-        if author.endswith(b'@lunarg.com'):
-            is_lunarg_author = True
-            break
-
+    is_lunarg_author = any(
+        author.endswith(b'@lunarg.com') for author in authors.split(b'\n')
+    )
     if not is_lunarg_author:
         return 0
 
@@ -95,12 +92,13 @@ def VerifyCopyrights(commit, target_files):
         if file is None or not os.path.isfile(file):
             continue
         for company in ["LunarG", "Valve"]:
-            # Capture the last year on the line as a separate match. It should be the highest (or only year of the range)
-            copyright_match = re.search('Copyright .*(\d{4}) ' + company, open(file, encoding="utf-8", errors='ignore').read(1024))
-            if copyright_match:
+            if copyright_match := re.search(
+                'Copyright .*(\d{4}) ' + company,
+                open(file, encoding="utf-8", errors='ignore').read(1024),
+            ):
                 copyright_year = copyright_match.group(1)
                 if int(commit_year) > int(copyright_year):
-                    msg = 'Change written in {} but copyright ends in {}.'.format(commit_year, copyright_year)
+                    msg = f'Change written in {commit_year} but copyright ends in {copyright_year}.'
                     CPrint('ERR_MSG', '\n' + file + ' has an out-of-date ' + company + ' copyright notice. ' + msg)
                     retval = 1
     return retval
@@ -115,56 +113,52 @@ def VerifyCommitMessageFormat(commit, target_files):
     if commit_text is None:
         return retval
 
-    msg_cur_line = 0
     msg_prev_line = ''
-    for msg_line_text in commit_text.splitlines():
-        msg_cur_line += 1
+    for msg_cur_line, msg_line_text in enumerate(commit_text.splitlines(), start=1):
         line_length = len(msg_line_text)
 
         if msg_cur_line == 1:
             # Enforce subject line must be 64 chars or less
             if line_length > 64:
                 CPrint('ERR_MSG', "The following subject line exceeds 64 characters in length.")
-                CPrint('CONTENT', "     '" + msg_line_text + "'\n")
+                CPrint('CONTENT', f"     '{msg_line_text}" + "'\n")
                 retval = 1
             # Output error if last char of subject line is not alpha-numeric
             if msg_line_text[-1] in '.,':
                 CPrint('ERR_MSG', "For the following commit, the last character of the subject line must not be a period or comma.")
-                CPrint('CONTENT', "     '" + msg_line_text + "'\n")
+                CPrint('CONTENT', f"     '{msg_line_text}" + "'\n")
                 retval = 1
             # Output error if subject line doesn't start with 'module: '
             if 'Revert' not in msg_line_text:
                 module_name = msg_line_text.split(' ')[0]
-                if module_name[-1] != ':':
-                    CPrint('ERR_MSG', "The following subject line must start with a single word specifying the functional area of the change, followed by a colon and space.")
-                    CPrint('ERR_MSG', "e.g., 'layers: Subject line here' or 'corechecks: Fix off-by-one error in ValidateFences'.")
-                    CPrint('ERR_MSG', "Other common module names include layers, build, cmake, tests, docs, scripts, stateless, gpu, syncval, practices, etc.")
-                    CPrint('CONTENT', "     '" + msg_line_text + "'\n")
-                    retval = 1
-                else:
+                if module_name[-1] == ':':
                     # Check if first character after the colon is lower-case
                     subject_body = msg_line_text.split(': ')[1]
                     if not subject_body[0].isupper():
                         CPrint('ERR_MSG', "The first word of the subject line after the ':' character must be capitalized.")
-                        CPrint('CONTENT', "     '" + msg_line_text + "'\n")
+                        CPrint('CONTENT', f"     '{msg_line_text}" + "'\n")
                         retval = 1
+                else:
+                    CPrint('ERR_MSG', "The following subject line must start with a single word specifying the functional area of the change, followed by a colon and space.")
+                    CPrint('ERR_MSG', "e.g., 'layers: Subject line here' or 'corechecks: Fix off-by-one error in ValidateFences'.")
+                    CPrint('ERR_MSG', "Other common module names include layers, build, cmake, tests, docs, scripts, stateless, gpu, syncval, practices, etc.")
+                    CPrint('CONTENT', f"     '{msg_line_text}" + "'\n")
+                    retval = 1
             # Check that first character of subject line is not capitalized
             if msg_line_text[0].isupper():
                 CPrint('ERR_MSG', "The first word of the subject line must be lower case.")
-                CPrint('CONTENT', "     '" + msg_line_text + "'\n")
+                CPrint('CONTENT', f"     '{msg_line_text}" + "'\n")
                 retval = 1
         elif msg_cur_line == 2:
             # Commit message must have a blank line between subject and body
             if line_length != 0:
                 CPrint('ERR_MSG', "The following subject line must be followed by a blank line.")
-                CPrint('CONTENT', "     '" + msg_prev_line + "'\n")
+                CPrint('CONTENT', f"     '{msg_prev_line}" + "'\n")
                 retval = 1
-        else:
-            # Lines in a commit message body must be less than 72 characters in length (but give some slack)
-            if line_length > 76:
-                CPrint('ERR_MSG', "The following commit message body line exceeds the 72 character limit.")
-                CPrint('CONTENT', "     '" + msg_line_text + "'\n")
-                retval = 1
+        elif line_length > 76:
+            CPrint('ERR_MSG', "The following commit message body line exceeds the 72 character limit.")
+            CPrint('CONTENT', f"     '{msg_line_text}" + "'\n")
+            retval = 1
         msg_prev_line = msg_line_text
     if retval != 0:
         CPrint('HELP_MSG', "Commit Message Format Requirements:")
@@ -211,11 +205,10 @@ def VerifyTypeAssign(commit, target_files):
                 elif stype_regex.search(line):
                     CPrint('ERR_MSG', "Test assigning sType instead of using LvlInitStruct")
                     CPrint('ERR_MSG', "If this is a case where LvlInitStruct cannot be used, //stype-check off can be used to turn off sType checking")
-                    CPrint('CONTENT', "     '" + line + "'\n")
+                    CPrint('CONTENT', f"     '{line}" + "'\n")
                     retval = 1
-            else:
-                if on_regex.search(line, re.IGNORECASE):
-                    checking = True
+            elif on_regex.search(line, re.IGNORECASE):
+                checking = True
     return retval
 #
 #

@@ -26,8 +26,8 @@ class DispatchTableHelperOutputGenerator(BaseGenerator):
         BaseGenerator.__init__(self)
 
     def generate(self):
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -48,10 +48,9 @@ class DispatchTableHelperOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 
 #include <vulkan/vulkan.h>
@@ -60,8 +59,8 @@ class DispatchTableHelperOutputGenerator(BaseGenerator):
 #include <string>
 #include "vk_layer_dispatch_table.h"
 #include "vk_extension_helper.h"
-\n''')
-
+\n''',
+        ]
         for command in [x for x in self.vk.commands.values() if x.extensions or x.version]:
             if command.name == 'vkEnumerateInstanceVersion':
                 continue # TODO - Figure out how this can be automatically detected
@@ -76,17 +75,25 @@ class DispatchTableHelperOutputGenerator(BaseGenerator):
 
             out.append(f'static {prototype} {{ {result} }}\n')
             out.extend([f'#endif // {command.protect}\n'] if command.protect else [])
-        out.append('\n')
-
-        out.append('const vvl::unordered_map<std::string, small_vector<std::string, 2, size_t>> api_extension_map {\n')
-        for command in [x for x in self.vk.commands.values() if x.version and x.device]:
-            out.append(f'    {{ "{command.name}", {{ "{command.version.name}" }} }},\n')
+        out.extend(
+            (
+                '\n',
+                'const vvl::unordered_map<std::string, small_vector<std::string, 2, size_t>> api_extension_map {\n',
+            )
+        )
+        out.extend(
+            f'    {{ "{command.name}", {{ "{command.version.name}" }} }},\n'
+            for command in [
+                x for x in self.vk.commands.values() if x.version and x.device
+            ]
+        )
         for command in [x for x in self.vk.commands.values() if x.extensions and x.device]:
             extensions = ', '.join(f'"{x.name}"' for x in command.extensions)
             out.append(f'    {{ "{command.name}", {{ {extensions} }} }},\n')
-        out.append('};\n')
-
-        out.append('''
+        out.extend(
+            (
+                '};\n',
+                '''
 // Using the above code-generated map of APINames-to-parent extension names, this function will:
 //   o  Determine if the API has an associated extension
 //   o  If it does, determine if that extension name is present in the passed-in set of device or instance enabled_ext_names
@@ -122,28 +129,33 @@ static inline bool ApiParentExtensionEnabled(const std::string api_name, const D
     }
     return true;
 }
-''')
-        out.append('''
+''',
+                '''
 static inline void layer_init_device_dispatch_table(VkDevice device, VkLayerDispatchTable *table, PFN_vkGetDeviceProcAddr gpa) {
     memset(table, 0, sizeof(*table));
     // Device function pointers
     table->GetDeviceProcAddr = gpa;
-''')
+''',
+            )
+        )
         for command in [x for x in self.vk.commands.values() if x.device and x.name != 'vkGetDeviceProcAddr']:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'    table->{command.name[2:]} = (PFN_{command.name}) gpa(device, "{command.name}");\n')
             if command.version or command.extensions:
                 out.append(f'    if (table->{command.name[2:]} == nullptr) {{ table->{command.name[2:]} = (PFN_{command.name})Stub{command.name[2:]}; }}\n')
             out.extend([f'#endif // {command.protect}\n'] if command.protect else [])
-        out.append('}\n')
-
-        out.append('''
+        out.extend(
+            (
+                '}\n',
+                '''
 static inline void layer_init_instance_dispatch_table(VkInstance instance, VkLayerInstanceDispatchTable *table, PFN_vkGetInstanceProcAddr gpa) {
     memset(table, 0, sizeof(*table));
     // Instance function pointers
     table->GetInstanceProcAddr = gpa;
     table->GetPhysicalDeviceProcAddr = (PFN_GetPhysicalDeviceProcAddr) gpa(instance, "vk_layerGetPhysicalDeviceProcAddr");
-''')
+''',
+            )
+        )
         ignoreList = [
               'vkCreateInstance',
               'vkCreateDevice',
@@ -159,7 +171,5 @@ static inline void layer_init_instance_dispatch_table(VkInstance instance, VkLay
             if command.version or command.extensions:
                 out.append(f'    if (table->{command.name[2:]} == nullptr) {{ table->{command.name[2:]} = (PFN_{command.name})Stub{command.name[2:]}; }}\n')
             out.extend([f'#endif // {command.protect}\n'] if command.protect else [])
-        out.append('}\n')
-
-        out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
+        out.extend(('}\n', '// NOLINTEND'))
         self.write("".join(out))

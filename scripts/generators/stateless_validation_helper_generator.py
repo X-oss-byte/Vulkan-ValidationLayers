@@ -208,11 +208,11 @@ class StatelessValidationHelperOutputGenerator(BaseGenerator):
         ]
 
         # Map of structs type names to generated validation code for that struct type
-        self.validatedStructs = dict()
+        self.validatedStructs = {}
         # Map of flags typenames
         self.flags = set()
         # Map of flag bits typename to list of values
-        self.flagBits = dict()
+        self.flagBits = {}
 
     def generate(self):
         self.write(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
@@ -248,21 +248,29 @@ class StatelessValidationHelperOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('#pragma once\n')
-
-        out.append('\nstatic inline bool IsDuplicatePnext(VkStructureType input_value) {\n')
-        out.append('    switch (input_value) {\n')
-        for struct in [x for x in self.vk.structs.values() if x.allowDuplicate and x.sType is not None]:
-            # The sType will always be first member of struct
-            out.append(f'        case {struct.sType}:\n')
-        out.append('            return true;\n')
-        out.append('        default:\n')
-        out.append('            return false;\n')
-        out.append('    }\n')
-        out.append('}\n')
-        out.append('\n')
-
+        out = [
+            '#pragma once\n',
+            '\nstatic inline bool IsDuplicatePnext(VkStructureType input_value) {\n',
+            '    switch (input_value) {\n',
+        ]
+        out.extend(
+            f'        case {struct.sType}:\n'
+            for struct in [
+                x
+                for x in self.vk.structs.values()
+                if x.allowDuplicate and x.sType is not None
+            ]
+        )
+        out.extend(
+            (
+                '            return true;\n',
+                '        default:\n',
+                '            return false;\n',
+                '    }\n',
+                '}\n',
+                '\n',
+            )
+        )
         for command in [x for x in self.vk.commands.values() if x.name not in self.blacklist]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             prototype = command.cPrototype.split('VKAPI_CALL ')[1]
@@ -299,7 +307,7 @@ class StatelessValidationHelperOutputGenerator(BaseGenerator):
         #  VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT
         #  VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_INFO_EXT
         root = self.registry.reg
-        stype_version_dict = dict()
+        stype_version_dict = {}
         for extensions in root.findall('extensions'):
             for extension in extensions.findall('extension'):
                 extensionName = extension.get('name')
@@ -312,9 +320,8 @@ class StatelessValidationHelperOutputGenerator(BaseGenerator):
                         alias = entry.get('alias')
                         if (alias is not None and promotedToCore):
                             stype_version_dict[alias] = extensionName
-        out = []
-
-        out.append('''
+        out = [
+            '''
 #include "chassis.h"
 
 #include "stateless/stateless_validation.h"
@@ -327,24 +334,30 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
                                                       bool is_physdev_api, bool is_const_param) const {
     bool skip = false;
     switch(header->sType) {
-''')
+'''
+        ]
 
         # Generate the struct member checking code from the captured data
         for struct in self.vk.structs.values():
-            # The string returned will be nested in an if check for a NULL pointer, so needs its indent incremented
-            lines = self.genFuncBody(self.vk.structs[struct.name].members, '{funcName}', '{valuePrefix}', '{displayNamePrefix}', struct.name, False)
-            if lines:
+            if lines := self.genFuncBody(
+                self.vk.structs[struct.name].members,
+                '{funcName}',
+                '{valuePrefix}',
+                '{displayNamePrefix}',
+                struct.name,
+                False,
+            ):
                 self.validatedStructs[struct.name] = lines
 
         # Do some processing here to extract data from validatedstructs...
         for struct in [x for x in self.vk.structs.values() if x.extends]:
             out.extend([f'#ifdef {struct.protect}\n'] if struct.protect else [])
 
-            postProcSpec = {}
-            postProcSpec['ppp'] = '{postProcPrefix}'
-            postProcSpec['pps'] = '{postProcSuffix}'
-            postProcSpec['ppi'] = '{postProcInsert}'
-
+            postProcSpec = {
+                'ppp': '{postProcPrefix}',
+                'pps': '{postProcSuffix}',
+                'ppi': '{postProcInsert}',
+            }
             pnext_case = '\n'
             pnext_check = ''
 
@@ -360,7 +373,7 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
                            parameter_name.get_name().c_str(), StringAPIVersion(api_version).c_str());
             }}\n'''
 
-            if struct.sType in stype_version_dict.keys():
+            if struct.sType in stype_version_dict:
                 ext_name = stype_version_dict[struct.sType]
 
                 # Skip extensions that are not in the target API
@@ -369,7 +382,7 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
                 # may attempt to generate code for extensions which are not supported in the
                 # target API variant, thus this check needs to happen even if any specific
                 # target API variant may not specifically need it
-                if not ext_name in self.vk.extensions:
+                if ext_name not in self.vk.extensions:
                     continue
 
                 # Dependent on enabled extension
@@ -436,33 +449,32 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
                 lines.insert(0, f'if (!{cExpression}) skip |= OutputExtensionError(loc, "{" || ".join(outExpression)}");\n')
             if lines:
                 prototype = command.cPrototype[:-1].split('\n')
-                prototype = '\n'.join(prototype)
-                prototype += ' const {\n'
+                prototype = '\n'.join(prototype) + ' const {\n'
                 prototype = prototype.split('VKAPI_CALL vk')[1]
                 prototype = prototype.replace(')', ',\n    const ErrorObject&                          error_obj)')
-                out.append('bool StatelessValidation::PreCallValidate' + prototype)
-                out.append(f'{indent}bool skip = false;\n')
-                # Create a copy here to make the logic simpler passing into ValidatePnextStructContents
-                out.append(f'{indent}[[maybe_unused]] const Location& loc = error_obj.location;\n')
+                out.extend(
+                    (
+                        f'bool StatelessValidation::PreCallValidate{prototype}',
+                        f'{indent}bool skip = false;\n',
+                        f'{indent}[[maybe_unused]] const Location& loc = error_obj.location;\n',
+                    )
+                )
                 if command.instance and command.version:
                     out.append(f'{indent} if (CheckPromotedApiAgainstVulkanVersion({command.params[0].name}, loc, {command.version.nameApi})) return true;\n')
                 for line in lines:
                     if type(line) is list:
-                        for sub in line:
-                            out.append(indent + sub)
+                        out.extend(indent + sub for sub in line)
                     else:
                         out.append(indent + line)
                 # Insert call to custom-written function if present
                 if command.name in self.functions_with_manual_checks:
-                    # Generate parameter list for manual fcn and down-chain calls
-                    params_text = ''
-                    for param in command.params:
-                        params_text += f'{param.name}, '
-                    params_text += 'error_obj, '
+                    params_text = (
+                        ''.join(f'{param.name}, ' for param in command.params)
+                        + 'error_obj, '
+                    )
                     params_text = params_text[:-2] + ');\n'
                     out.append(f'    if (!skip) skip |= manual_PreCallValidate{command.name[2:]}({params_text}')
-                out.append(f'{indent}return skip;\n')
-                out.append('}\n')
+                out.extend((f'{indent}return skip;\n', '}\n'))
                 out.extend([f'#endif // {command.protect}\n'] if command.protect else [])
                 out.append('\n')
 
@@ -476,11 +488,12 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
     def genGroup(self, groupinfo, groupName, alias):
         BaseGenerator.genGroup(self, groupinfo, groupName, alias)
         if 'FlagBits' in groupName and groupName != 'VkStructureType':
-            bits = []
-            for elem in groupinfo.elem.findall('enum'):
-                if elem.get('supported') != 'disabled' and elem.get('alias') is None:
-                    bits.append(elem.get('name'))
-            if bits:
+            if bits := [
+                elem.get('name')
+                for elem in groupinfo.elem.findall('enum')
+                if elem.get('supported') != 'disabled'
+                and elem.get('alias') is None
+            ]:
                 self.flagBits[groupName] = bits
 
     def isHandleOptional(self, member: Member, lengthMember: Member) -> bool :
@@ -497,13 +510,10 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
 
     # Generate code to check for a specific condition before executing validation code
     def genConditionalCall(self, prefix, condition, exprs):
-        checkedExpr = []
         localIndent = ''
-        checkedExpr.append(localIndent + f'if ({condition})\n')
-        checkedExpr.append(localIndent + '{\n')
+        checkedExpr = [f'{localIndent}if ({condition})\n', localIndent + '{\n']
         localIndent = incIndent(localIndent)
-        for expr in exprs:
-            checkedExpr.append(localIndent + expr)
+        checkedExpr.extend(localIndent + expr for expr in exprs)
         localIndent = decIndent(localIndent)
         checkedExpr.append(localIndent + '}\n')
         return [checkedExpr]
@@ -555,32 +565,48 @@ bool StatelessValidation::ValidatePnextStructContents(const Location& loc, const
 
     # Generate the handle check string
     def makeHandleCheck(self, prefix, member: Member, lengthMember: Member, valueRequired, lenValueRequired, funcPrintName, lenPrintName, valuePrintName, postProcSpec):
-        checkExpr = []
-        if lengthMember:
-            if lengthMember.pointer:
-                # This is assumed to be an output array with a pointer to a count value
-                raise Exception('Unsupported parameter validation case: Output handle array elements are not NULL checked')
-            else:
-                count_required_vuid = self.GetVuid(funcPrintName, f"{member.length}-arraylength")
-                # This is an array with an integer count value
-                checkExpr.append('skip |= ValidateHandleArray(loc, {ppp}"{ldn}"{pps}, {ppp}"{dn}"{pps}, {pf}{ln}, {pf}{vn}, {}, {}, {});\n'.format(
-                    lenValueRequired, valueRequired, count_required_vuid, ln=member.length, ldn=lenPrintName, dn=valuePrintName, vn=member.name, pf=prefix, **postProcSpec))
-        else:
+        if not lengthMember:
             # This is assumed to be an output handle pointer
             raise Exception('Unsupported parameter validation case: Output handles are not NULL checked')
-        return checkExpr
+        if lengthMember.pointer:
+            # This is assumed to be an output array with a pointer to a count value
+            raise Exception('Unsupported parameter validation case: Output handle array elements are not NULL checked')
+        count_required_vuid = self.GetVuid(funcPrintName, f"{member.length}-arraylength")
+        return [
+            'skip |= ValidateHandleArray(loc, {ppp}"{ldn}"{pps}, {ppp}"{dn}"{pps}, {pf}{ln}, {pf}{vn}, {}, {}, {});\n'.format(
+                lenValueRequired,
+                valueRequired,
+                count_required_vuid,
+                ln=member.length,
+                ldn=lenPrintName,
+                dn=valuePrintName,
+                vn=member.name,
+                pf=prefix,
+                **postProcSpec
+            )
+        ]
 
     # Generate check string for an array of VkFlags values
     def makeFlagsArrayCheck(self, prefix, member: Member, lenValueRequired, callerName, lenPrintName, valuePrintName, postProcSpec):
-        checkExpr = []
         flagBitsName = member.type.replace('Flags', 'FlagBits')
         if flagBitsName not in self.vk.bitmasks:
             raise Exception('Unsupported parameter validation case: array of reserved VkFlags')
-        else:
-            allFlags = 'All' + flagBitsName
-            array_required_vuid = self.GetVuid(callerName, f"{member.name}-parameter")
-            checkExpr.append('skip |= ValidateFlagsArray(loc, {ppp}"{}"{pps}, {ppp}"{}"{pps}, "{}", {}, {pf}{}, {pf}{}, {}, {});\n'.format(lenPrintName, valuePrintName, flagBitsName, allFlags, member.length, member.name, lenValueRequired, array_required_vuid, pf=prefix, **postProcSpec))
-        return checkExpr
+        allFlags = f'All{flagBitsName}'
+        array_required_vuid = self.GetVuid(callerName, f"{member.name}-parameter")
+        return [
+            'skip |= ValidateFlagsArray(loc, {ppp}"{}"{pps}, {ppp}"{}"{pps}, "{}", {}, {pf}{}, {pf}{}, {}, {});\n'.format(
+                lenPrintName,
+                valuePrintName,
+                flagBitsName,
+                allFlags,
+                member.length,
+                member.name,
+                lenValueRequired,
+                array_required_vuid,
+                pf=prefix,
+                **postProcSpec
+            )
+        ]
 
     # Generate pNext check string
     def makeStructNextCheck(self, prefix, member: Member, funcPrintName, valuePrintName, postProcSpec, structTypeName):

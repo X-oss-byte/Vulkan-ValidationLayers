@@ -28,7 +28,7 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
                  grammar):
         BaseGenerator.__init__(self)
 
-        self.opcodes = dict()
+        self.opcodes = {}
         self.atomicsOps = []
         self.groupOps = []
         self.imageAcesssOps = []
@@ -42,7 +42,7 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
         self.builtInList = []
         self.dimList = []
         # Need range to be large as largest possible operand index
-        self.imageOperandsParamCount = [[] for i in range(3)]
+        self.imageOperandsParamCount = [[] for _ in range(3)]
 
         self.parseGrammar(grammar)
 
@@ -68,26 +68,29 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
 
             # Build list from json of all capabilities that are only for kernel
             # This needs to be done before loop instructions
-            kernelCapability = ['Kernel']
-            # some SPV_INTEL_* are not allowed in Vulkan and are just adding unused opcodes
-            # TODO bring in vk.xml to cross check valid extensions/capabilities instead of starting another hardcoded list
-            kernelCapability.append('ArbitraryPrecisionIntegersINTEL')
-            kernelCapability.append('ArbitraryPrecisionFixedPointINTEL')
-            kernelCapability.append('ArbitraryPrecisionFloatingPointINTEL')
-            kernelCapability.append('SubgroupAvcMotionEstimationINTEL')
-            kernelCapability.append('SubgroupAvcMotionEstimationIntraINTEL')
-            kernelCapability.append('SubgroupAvcMotionEstimationChromaINTEL')
-
+            kernelCapability = [
+                'Kernel',
+                'ArbitraryPrecisionIntegersINTEL',
+                'ArbitraryPrecisionFixedPointINTEL',
+                'ArbitraryPrecisionFloatingPointINTEL',
+                'SubgroupAvcMotionEstimationINTEL',
+                'SubgroupAvcMotionEstimationIntraINTEL',
+                'SubgroupAvcMotionEstimationChromaINTEL',
+            ]
             for operandKind in operandKinds:
                 if operandKind['kind'] == 'Capability':
-                    for enum in operandKind['enumerants']:
-                        if 'capabilities' in enum and len(enum['capabilities']) == 1 and enum['capabilities'][0] == 'Kernel':
-                            kernelCapability.append(enum['enumerant'])
+                    kernelCapability.extend(
+                        enum['enumerant']
+                        for enum in operandKind['enumerants']
+                        if 'capabilities' in enum
+                        and len(enum['capabilities']) == 1
+                        and enum['capabilities'][0] == 'Kernel'
+                    )
                 if operandKind['kind'] == 'ImageOperands':
                     values = [] # prevent alias from being duplicatd
                     for enum in operandKind['enumerants']:
-                        count = 0  if 'parameters' not in enum else len(enum['parameters'])
                         if enum['value'] not in values:
+                            count = 0  if 'parameters' not in enum else len(enum['parameters'])
                             self.imageOperandsParamCount[count].append(enum['enumerant'])
                             values.append(enum['value'])
                 self.addToStingList(operandKind, 'StorageClass', self.storageClassList)
@@ -100,11 +103,10 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
                 opname = instruction['opname']
                 opcode = instruction['opcode']
                 if 'capabilities' in instruction:
-                    notSupported = True
-                    for capability in instruction['capabilities']:
-                        if capability not in kernelCapability:
-                            notSupported = False
-                            break
+                    notSupported = all(
+                        capability in kernelCapability
+                        for capability in instruction['capabilities']
+                    )
                     if notSupported:
                         continue # If just 'Kernel' capabilites then it's ment for OpenCL and skip instruction
 
@@ -143,7 +145,7 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
                         # some instructions have both types of IdScope
                         # OpReadClockKHR has the wrong 'name' as 'Scope'
                         if operand['kind'] == 'IdScope':
-                            if operand['name'] == '\'Execution\'' or operand['name'] == '\'Scope\'':
+                            if operand['name'] in ['\'Execution\'', '\'Scope\'']:
                                 self.opcodes[opcode]['executionScopePosition'] = index + 1
                             elif operand['name'] == '\'Memory\'':
                                 self.opcodes[opcode]['memoryScopePosition'] = index + 1
@@ -170,11 +172,11 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
                         # things like OpImageSparseTexelsResident don't do an actual image operation
                         continue
                     elif imageRef != 0 and sampledImageRef != 0:
-                        print("Error: unknown opcode {} not handled correctly\n".format(opname))
+                        print(f"Error: unknown opcode {opname} not handled correctly\n")
                         sys.exit(1)
                     elif imageRef != 0:
                         self.imageAcesssOps.append(opname)
-                    elif sampledImageRef != 0:
+                    else:
                         self.sampledImageAccessOps.append(opname)
 
     def generate(self):
@@ -213,8 +215,8 @@ class SpirvGrammarHelperOutputGenerator(BaseGenerator):
         self.write('// NOLINTEND') # Wrap for clang-tidy to ignore
 
     def generateHeader(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #pragma once
 #include <cstdint>
 #include <spirv/unified1/spirv.hpp>
@@ -243,12 +245,13 @@ const char* string_SpvExecutionModel(uint32_t execution_model);
 const char* string_SpvDecoration(uint32_t decoration);
 const char* string_SpvBuiltIn(uint32_t built_in);
 const char* string_SpvDim(uint32_t dim);
-''')
+'''
+        ]
         self.write("".join(out))
 
     def generateSource(self):
-        out = []
-        out.append('''
+        out = [
+            '''
 #include "containers/custom_containers.h"
 #include "spirv_grammar_helper.h"
 #include "state_tracker/shader_instruction.h"
@@ -272,9 +275,10 @@ struct InstructionInfo {
 //
 // clang-format off
 static const vvl::unordered_map<uint32_t, InstructionInfo> kInstructionTable {
-''')
-        for info in self.opcodes.values():
-            out.append('    {{spv::{}, {{"{}", {}, {}, {}, {}, {}, {}, {}}}}},\n'.format(
+'''
+        ]
+        out.extend(
+            '    {{spv::{}, {{"{}", {}, {}, {}, {}, {}, {}, {}}}}},\n'.format(
                 info['name'],
                 info['name'],
                 info['hasType'],
@@ -284,14 +288,16 @@ static const vvl::unordered_map<uint32_t, InstructionInfo> kInstructionTable {
                 info['imageOperandsPosition'],
                 info['imageRefPosition'],
                 info['sampledImageRefPosition'],
-            ))
-        out.append('};\n')
-        out.append('// clang-format on\n')
-
+            )
+            for info in self.opcodes.values()
+        )
+        out.extend(('};\n', '// clang-format on\n'))
         # \n is not allowed in f-string until 3.12
         atomicCase = "\n".join([f"        case spv::{f}:" for f in self.atomicsOps])
         groupCase = "\n".join([f"        case spv::{f}:" for f in self.groupOps])
-        out.append(f'''
+        out.extend(
+            (
+                f'''
 // Any non supported operation will be covered with VUID 01090
 bool AtomicOperation(uint32_t opcode) {{
     bool found = false;
@@ -317,17 +323,22 @@ bool GroupOperation(uint32_t opcode) {{
     }}
     return found;
 }}
-''')
-
-        out.append('''
+''',
+                '''
 spv::StorageClass Instruction::StorageClass() const {
     spv::StorageClass storage_class = spv::StorageClassMax;
     switch (Opcode()) {
-''')
+''',
+            )
+        )
         for info in [x for x in self.opcodes.values() if x['storageClassPosition'] != 0]:
-            out.append(f'        case spv::{info["name"]}:\n')
-            out.append(f'            storage_class = static_cast<spv::StorageClass>(Word({info["storageClassPosition"]}));\n')
-            out.append('            break;\n')
+            out.extend(
+                (
+                    f'        case spv::{info["name"]}:\n',
+                    f'            storage_class = static_cast<spv::StorageClass>(Word({info["storageClassPosition"]}));\n',
+                    '            break;\n',
+                )
+            )
         out.append('''
         default:
             break;
@@ -339,7 +350,9 @@ spv::StorageClass Instruction::StorageClass() const {
         imageGatherOpsCase = "\n".join([f"        case spv::{f}:" for f in self.imageGatherOps])
         imageFetchOpsCase = "\n".join([f"        case spv::{f}:" for f in self.imageFetchOps])
         imageSampleOpsCase = "\n".join([f"        case spv::{f}:" for f in self.imageSampleOps])
-        out.append(f'''
+        out.extend(
+            (
+                f'''
 bool ImageGatherOperation(uint32_t opcode) {{
     bool found = false;
     switch (opcode) {{
@@ -375,9 +388,8 @@ bool ImageSampleOperation(uint32_t opcode) {{
     }}
     return found;
 }}
-''')
-
-        out.append('''
+''',
+                '''
 // Return operand position of Image IdRef or zero if there is none
 uint32_t ImageAccessOperandsPosition(uint32_t opcode) {
     uint32_t position = 0;
@@ -450,8 +462,9 @@ uint32_t OpcodeImageOperandsPosition(uint32_t opcode) {
 uint32_t ImageOperandsParamCount(uint32_t image_operand) {
     uint32_t count = 0;
     switch (image_operand) {
-''')
-
+''',
+            )
+        )
         for index, operands in enumerate(self.imageOperandsParamCount):
             for operand in operands:
                 if operand == 'None': # not sure why header is not consistent with this
@@ -460,15 +473,16 @@ uint32_t ImageOperandsParamCount(uint32_t image_operand) {
                     out.append(f'        case spv::ImageOperands{operand}Mask:\n')
             if len(operands) != 0:
                 out.append(f'            return {index};\n')
-        out.append('''
+        out.extend(
+            (
+                '''
         default:
             break;
     }
     return count;
 }
-''')
-
-        out.append('''
+''',
+                '''
 const char* string_SpvOpcode(uint32_t opcode) {
     auto format_info = kInstructionTable.find(opcode);
     if (format_info != kInstructionTable.end()) {
@@ -477,9 +491,8 @@ const char* string_SpvOpcode(uint32_t opcode) {
         return "Unknown Opcode";
     }
 }
-''')
-
-        out.append(f'''
+''',
+                f'''
 const char* string_SpvStorageClass(uint32_t storage_class) {{
     switch(storage_class) {{
 {"".join([f"""        case spv::StorageClass{x}:
@@ -529,5 +542,7 @@ const char* string_SpvDim(uint32_t dim) {{
             return "Unknown Dim";
     }}
 }}
-''')
+''',
+            )
+        )
         self.write("".join(out))

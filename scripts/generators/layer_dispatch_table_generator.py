@@ -25,8 +25,8 @@ class LayerDispatchTableOutputGenerator(BaseGenerator):
         BaseGenerator.__init__(self)
 
     def generate(self):
-        out = []
-        out.append(f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
+        out = [
+            f'''// *** THIS FILE IS GENERATED - DO NOT EDIT ***
 // See {os.path.basename(__file__)} for modifications
 
 /***************************************************************************
@@ -47,35 +47,36 @@ class LayerDispatchTableOutputGenerator(BaseGenerator):
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-****************************************************************************/\n''')
-        out.append('// NOLINTBEGIN') # Wrap for clang-tidy to ignore
-
-        out.append('''
+****************************************************************************/\n''',
+            '// NOLINTBEGIN',
+            '''
 #pragma once
 
 typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_GetPhysicalDeviceProcAddr)(VkInstance instance, const char* pName);
-''')
-        out.append('''
+''',
+            '''
 // Instance function pointer dispatch table
 typedef struct VkLayerInstanceDispatchTable_ {
     PFN_GetPhysicalDeviceProcAddr GetPhysicalDeviceProcAddr;
 
-''')
+''',
+        ]
         for command in [x for x in self.vk.commands.values() if x.instance]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'    PFN_{command.name} {command.name[2:]};\n')
             out.extend([f'#endif //{command.protect}\n'] if command.protect else [])
-        out.append('} VkLayerInstanceDispatchTable;\n')
-
-        out.append('''
+        out.extend(
+            (
+                '} VkLayerInstanceDispatchTable;\n',
+                '''
 // Device function pointer dispatch table
 typedef struct VkLayerDispatchTable_ {
-''')
+''',
+            )
+        )
         for command in [x for x in self.vk.commands.values() if x.device]:
             out.extend([f'#ifdef {command.protect}\n'] if command.protect else [])
             out.append(f'    PFN_{command.name} {command.name[2:]};\n')
             out.extend([f'#endif //{command.protect}\n'] if command.protect else [])
-        out.append('} VkLayerDispatchTable;\n')
-
-        out.append('// NOLINTEND') # Wrap for clang-tidy to ignore
+        out.extend(('} VkLayerDispatchTable;\n', '// NOLINTEND'))
         self.write("".join(out))
